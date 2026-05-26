@@ -43,7 +43,8 @@ export class ClaudeCodeAdapter implements AgentAdapter {
         const maybeId = (sdkMsg as { session_id?: string }).session_id;
         if (maybeId) nativeSessionId = maybeId;
 
-        yield normalize(sdkMsg);
+        const norm = normalize(sdkMsg);
+        if (norm) yield norm;
       }
     } catch (err) {
       ok = false;
