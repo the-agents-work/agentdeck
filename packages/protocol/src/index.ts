@@ -15,15 +15,32 @@ export type SessionSummary = {
 };
 
 // Opaque message shape coming from the underlying agent SDK.
-// We pass it through to the mobile client; the client renders by `subtype`.
+// The dashboard renders one row per AgentMessage. An assistant turn that
+// contains both `thinking` + `text` + a `tool_use` will arrive as THREE
+// separate AgentMessages so each block can render with its own UI affordance.
 export type AgentMessage = {
-  type: "system" | "assistant" | "user" | "result" | "tool_use" | "tool_result" | string;
+  type:
+    | "system"
+    | "assistant"
+    | "user"
+    | "result"
+    | "tool_use"
+    | "tool_result"
+    | "thinking"
+    | "redacted_thinking"
+    | "error"
+    | string;
   // Original SDK message payload — kept as `unknown` to stay adapter-agnostic.
   raw: unknown;
   // Best-effort flat text extracted by the adapter for quick rendering.
+  // Used by `assistant`, `user`, `result`, and as fallback prose.
   text?: string;
-  // Optional structured fields the mobile UI may use.
+  // Reasoning content surfaced by extended thinking. Only set when
+  // type === "thinking". `redacted_thinking` is a separate type with no body.
+  thinking?: string;
+  // Optional structured fields. Only set when type === "tool_use".
   tool?: { name: string; input?: unknown };
+  // Only set when type === "tool_result".
   toolResult?: { output?: unknown; isError?: boolean };
 };
 

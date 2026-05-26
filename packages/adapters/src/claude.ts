@@ -34,6 +34,18 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     const sdkOptions: Record<string, unknown> = {
       cwd: opts.cwd,
       permissionMode,
+      // Extended thinking — Claude's chain-of-thought. Opus 4.6+ defaults to
+      // adaptive, but we set it explicitly so behavior is stable across model
+      // upgrades. `display: 'summarized'` is required: without it the SDK
+      // emits thinking content blocks in the wire format but stripped from
+      // the JSON stream (i.e. the model thinks but the dashboard never sees
+      // it). The dashboard renders these as collapsible italic blocks.
+      thinking: { type: "adaptive", display: "summarized" },
+      // When Claude spawns a subagent (e.g. via the Task tool), forward the
+      // subagent's text + thinking too. Without this, we'd only see the
+      // parent's tool_use heartbeats and the user would think the agent is
+      // stuck for minutes while a subagent silently grinds.
+      forwardSubagentText: true,
     };
     if (permissionMode === "bypassPermissions") {
       // SDK requires this acknowledgement flag alongside bypassPermissions.
@@ -58,8 +70,10 @@ export class ClaudeCodeAdapter implements AgentAdapter {
         const maybeId = (sdkMsg as { session_id?: string }).session_id;
         if (maybeId) nativeSessionId = maybeId;
 
-        const norm = normalize(sdkMsg);
-        if (norm) yield norm;
+        // normalize() returns an array because a single assistant SDK frame
+        // can contain multiple content blocks (thinking + text + tool_use),
+        // each of which we want to surface as its own row in the dashboard.
+        for (const msg of normalize(sdkMsg)) yield msg;
       }
     } catch (err) {
       ok = false;
@@ -86,59 +100,81 @@ function abortControllerFromSignal(signal: AbortSignal): AbortController {
 }
 
 /**
- * Convert a Claude SDK message into the protocol's AgentMessage shape, OR
- * return null to drop the message entirely (system metadata, redundant final
- * result, empty content). The runner won't persist or fan-out null returns.
+ * Convert a Claude SDK message into ZERO OR MORE protocol AgentMessages.
  *
- * What we KEEP:
- *  - assistant text chunks
- *  - assistant tool_use parts (rendered as cards)
- *  - tool_result parts (rendered as cards, possibly errored)
- *  - explicit "error" frames
+ * Why an array: one SDK assistant frame can carry several content blocks
+ * (`thinking`, `text`, `tool_use`, `tool_result`). Collapsing them into a
+ * single AgentMessage was lossy — extended thinking disappeared, and chained
+ * tool_use calls would clobber each other. Emitting one row per block keeps
+ * the dashboard timeline faithful to what the model actually produced.
  *
- * What we DROP:
- *  - system.init and other system metadata frames (model name, mcp init...).
- *    They expose internal SDK state to the user with no value.
- *  - result frames. They duplicate the final assistant text — Claude SDK emits
- *    this as a synchronous summary for `print` mode. In our streaming UI it
- *    just shows the same answer twice.
- *  - assistant frames with no text AND no tool — empty deltas the SDK sometimes
- *    flushes mid-stream.
+ * What we KEEP and how:
+ *  - `thinking` block      → AgentMessage { type: "thinking", thinking: "..." }
+ *  - `redacted_thinking`   → AgentMessage { type: "redacted_thinking" }  (no body)
+ *  - `text` block          → AgentMessage { type: "assistant", text: "..." }
+ *  - `tool_use` block      → AgentMessage { type: "tool_use",  tool: {...} }
+ *  - `tool_result` block   → AgentMessage { type: "tool_result", toolResult: {...} }
+ *
+ * What we DROP entirely:
+ *  - `system` frames (init, model name, mcp readiness, etc.)
+ *  - `result` frames (duplicate final assistant text from `print` mode)
+ *  - blocks of unknown type with no usable payload
  */
-function normalize(sdkMsg: unknown): AgentMessage | null {
+function normalize(sdkMsg: unknown): AgentMessage[] {
   const m = sdkMsg as {
     type?: string;
     subtype?: string;
-    message?: { content?: Array<{ type: string; text?: string; name?: string; input?: unknown; content?: unknown; is_error?: boolean }> };
+    message?: {
+      content?: Array<{
+        type: string;
+        text?: string;
+        thinking?: string;
+        name?: string;
+        input?: unknown;
+        content?: unknown;
+        is_error?: boolean;
+      }>;
+    };
     result?: string;
   };
 
-  if (m.type === "system") return null;
-  if (m.type === "result") return null;
-
-  const out: AgentMessage = {
-    type: m.type ?? "unknown",
-    raw: sdkMsg,
-  };
+  if (m.type === "system") return [];
+  if (m.type === "result") return [];
+  // SDK 0.3+ emits these as a heartbeat for rate limit windows. Useful for
+  // power-user UIs that want to draw a quota bar; useless noise in our chat
+  // timeline. Drop until we have a place to render them.
+  if (m.type === "rate_limit_event") return [];
+  if (m.type === "stream_event") return [];
 
   if (m.type === "assistant" || m.type === "user") {
-    const parts = m.message?.content ?? [];
-    const textParts: string[] = [];
-    for (const part of parts) {
-      if (part.type === "text" && typeof part.text === "string") {
-        textParts.push(part.text);
+    const out: AgentMessage[] = [];
+    for (const part of m.message?.content ?? []) {
+      if (part.type === "text" && typeof part.text === "string" && part.text.length) {
+        out.push({ type: m.type, raw: sdkMsg, text: part.text });
+      } else if (part.type === "thinking" && typeof part.thinking === "string" && part.thinking.length) {
+        // Extended thinking. Surface it as its own row so the dashboard can
+        // collapse / dim it without affecting the regular reply rendering.
+        out.push({ type: "thinking", raw: part, thinking: part.thinking });
+      } else if (part.type === "redacted_thinking") {
+        // The body is encrypted; we still want a placeholder so the user
+        // sees "Claude thought about this but the content is redacted".
+        out.push({ type: "redacted_thinking", raw: part });
       } else if (part.type === "tool_use") {
-        out.tool = { name: part.name ?? "?", input: part.input };
+        out.push({
+          type: "tool_use",
+          raw: part,
+          tool: { name: part.name ?? "?", input: part.input },
+        });
       } else if (part.type === "tool_result") {
-        out.toolResult = { output: part.content, isError: part.is_error };
+        out.push({
+          type: "tool_result",
+          raw: part,
+          toolResult: { output: part.content, isError: part.is_error },
+        });
       }
     }
-    if (textParts.length) out.text = textParts.join("");
-    // Drop empty assistant frames — no text, no tool call, no tool result.
-    if (m.type === "assistant" && !out.text && !out.tool && !out.toolResult) {
-      return null;
-    }
+    return out;
   }
 
-  return out;
+  return [{ type: m.type ?? "unknown", raw: sdkMsg }];
 }

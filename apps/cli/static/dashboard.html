@@ -495,6 +495,48 @@
         border: 1px solid var(--border);
         border-radius: 4px;
       }
+      /* Thinking blocks — Claude's chain-of-thought. Shown collapsed by
+         default to keep the timeline scannable, expandable on tap. */
+      .thinking {
+        max-width: 88%;
+        background: transparent;
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        padding: 8px 12px;
+        color: var(--muted);
+        font-style: italic;
+        font-size: 13px;
+        line-height: 1.5;
+      }
+      .thinking-header {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 11px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: var(--muted);
+        cursor: pointer;
+        user-select: none;
+        font-style: normal;
+      }
+      .thinking-header::before {
+        content: "▸";
+        display: inline-block;
+        transition: transform 0.15s;
+      }
+      .thinking.open .thinking-header::before {
+        transform: rotate(90deg);
+      }
+      .thinking-body {
+        margin-top: 6px;
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+      .thinking:not(.open) .thinking-body {
+        display: none;
+      }
       .empty-chat {
         padding: 80px 16px;
         text-align: center;
@@ -1296,19 +1338,34 @@
             <div class="bubble user"><pre>${msg.text ?? ""}</pre></div>
           </div>`;
         }
+        if (msg.type === "thinking") {
+          return html`<${ThinkingBubble} text=${msg.thinking ?? msg.text ?? ""} />`;
+        }
+        if (msg.type === "redacted_thinking") {
+          return html`<div class="msg-row assistant">
+            <div class="thinking">
+              <span class="thinking-header" style="cursor: default;">
+                Thinking · redacted
+              </span>
+            </div>
+          </div>`;
+        }
+        // Dedicated tool_use row — emitted by the adapter as its own message
+        // since 0.4. We still match `msg.tool` defensively for older rows
+        // already persisted in SQLite.
+        if (msg.type === "tool_use" || (msg.type === "assistant" && msg.tool)) {
+          return html` <div class="msg-row assistant">
+            <div class="tool-card">
+              <div class="tool-label">Tool · ${msg.tool?.name ?? "?"}</div>
+              ${msg.tool?.input != null &&
+              html`<div class="tool-body">
+                <pre>${prettyJson(msg.tool.input)}</pre>
+              </div>`}
+            </div>
+          </div>`;
+        }
         if (msg.type === "assistant") {
-          if (msg.tool) {
-            return html` <div class="msg-row assistant">
-              <div class="tool-card">
-                <div class="tool-label">Tool · ${msg.tool.name}</div>
-                ${msg.tool.input != null &&
-                html`<div class="tool-body">
-                  <pre>${prettyJson(msg.tool.input)}</pre>
-                </div>`}
-              </div>
-            </div>`;
-          }
-          // Agent replies are markdown by default — render them sanitized.
+          // Plain text reply — markdown rendered + sanitized.
           return html` <div class="msg-row assistant">
             <div
               class="bubble assistant md"
@@ -1349,6 +1406,31 @@
           </div>`;
         }
         return null;
+      }
+
+      function ThinkingBubble({ text }) {
+        // Default state: collapsed. The user can tap the header to see the
+        // model's chain-of-thought. We mirror the Claude.ai web UI's pattern:
+        // visible-but-quiet, italic, dashed border, never markdown rendered
+        // (the content is private reasoning, not a finished reply).
+        const [open, setOpen] = useState(false);
+        const preview = useMemo(() => {
+          const oneLine = (text || "").replace(/\s+/g, " ").trim();
+          return oneLine.length > 80 ? oneLine.slice(0, 80) + "…" : oneLine;
+        }, [text]);
+        return html`<div class="msg-row assistant">
+          <div class=${"thinking" + (open ? " open" : "")}>
+            <div
+              class="thinking-header"
+              onClick=${() => setOpen((v) => !v)}
+              role="button"
+              aria-expanded=${open}
+            >
+              Thinking${preview ? " · " + preview : ""}
+            </div>
+            <div class="thinking-body"><pre>${text}</pre></div>
+          </div>
+        </div>`;
       }
 
       function InputBar({ agent, disabled, onSend }) {
