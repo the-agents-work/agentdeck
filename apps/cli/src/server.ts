@@ -3,8 +3,8 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 import type {
-  Pocket AgentsCommand,
-  Pocket AgentsEvent,
+  PocketAgentsCommand,
+  PocketAgentsEvent,
   AgentName,
 } from "@pocket-agents/protocol";
 import { PROTOCOL_VERSION } from "@pocket-agents/protocol";
@@ -57,7 +57,7 @@ export function startServer(opts: {
   // Fan out runner events to all authed sockets
   const sockets = new Set<ServerWebSocket<ConnData>>();
   runner.subscribe((event) => {
-    let wire: Pocket AgentsEvent;
+    let wire: PocketAgentsEvent;
     if (event.type === "message") {
       wire = {
         type: "agent.message",
@@ -134,11 +134,11 @@ export function startServer(opts: {
         sockets.delete(ws);
       },
       async message(ws, raw) {
-        let cmd: Pocket AgentsCommand;
+        let cmd: PocketAgentsCommand;
         try {
           cmd = JSON.parse(
             typeof raw === "string" ? raw : raw.toString(),
-          ) as Pocket AgentsCommand;
+          ) as PocketAgentsCommand;
         } catch {
           return send(ws, { type: "auth.fail", reason: "invalid json" });
         }
@@ -300,7 +300,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function send(ws: ServerWebSocket<ConnData>, event: Pocket AgentsEvent): void {
+function send(ws: ServerWebSocket<ConnData>, event: PocketAgentsEvent): void {
   ws.send(JSON.stringify(event));
 }
 

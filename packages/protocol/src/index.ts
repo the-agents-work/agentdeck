@@ -45,7 +45,7 @@ export type AgentMessage = {
 };
 
 // ----- Client → Server commands -----
-export type Pocket AgentsCommand =
+export type PocketAgentsCommand =
   | { type: "auth"; token: string; protocolVersion: number }
   | { type: "pin.verify"; pin: string }
   | { type: "session.list" }
@@ -57,7 +57,7 @@ export type Pocket AgentsCommand =
   | { type: "ping" };
 
 // ----- Server → Client events -----
-export type Pocket AgentsEvent =
+export type PocketAgentsEvent =
   | {
       type: "auth.ok";
       protocolVersion: number;
