@@ -71,17 +71,35 @@ function abortControllerFromSignal(signal: AbortSignal): AbortController {
 }
 
 /**
- * Convert a Claude SDK message into the protocol's AgentMessage shape.
- * Best-effort: we surface a flat `text` field for quick mobile rendering,
- * and keep `raw` so power UIs can render the full payload.
+ * Convert a Claude SDK message into the protocol's AgentMessage shape, OR
+ * return null to drop the message entirely (system metadata, redundant final
+ * result, empty content). The runner won't persist or fan-out null returns.
+ *
+ * What we KEEP:
+ *  - assistant text chunks
+ *  - assistant tool_use parts (rendered as cards)
+ *  - tool_result parts (rendered as cards, possibly errored)
+ *  - explicit "error" frames
+ *
+ * What we DROP:
+ *  - system.init and other system metadata frames (model name, mcp init...).
+ *    They expose internal SDK state to the user with no value.
+ *  - result frames. They duplicate the final assistant text — Claude SDK emits
+ *    this as a synchronous summary for `print` mode. In our streaming UI it
+ *    just shows the same answer twice.
+ *  - assistant frames with no text AND no tool — empty deltas the SDK sometimes
+ *    flushes mid-stream.
  */
-function normalize(sdkMsg: unknown): AgentMessage {
+function normalize(sdkMsg: unknown): AgentMessage | null {
   const m = sdkMsg as {
     type?: string;
     subtype?: string;
     message?: { content?: Array<{ type: string; text?: string; name?: string; input?: unknown; content?: unknown; is_error?: boolean }> };
     result?: string;
   };
+
+  if (m.type === "system") return null;
+  if (m.type === "result") return null;
 
   const out: AgentMessage = {
     type: m.type ?? "unknown",
@@ -101,10 +119,10 @@ function normalize(sdkMsg: unknown): AgentMessage {
       }
     }
     if (textParts.length) out.text = textParts.join("");
-  } else if (m.type === "result" && typeof m.result === "string") {
-    out.text = m.result;
-  } else if (m.type === "system" && m.subtype === "init") {
-    out.text = "session initialized";
+    // Drop empty assistant frames — no text, no tool call, no tool result.
+    if (m.type === "assistant" && !out.text && !out.tool && !out.toolResult) {
+      return null;
+    }
   }
 
   return out;
