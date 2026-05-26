@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="theme-color" content="#0a0a0b" />
+<title>AgentDeck</title>
+<style>
+  :root {
+    --bg: #0a0a0b;
+    --surface: #141416;
+    --surface-2: #1c1c20;
+    --border: #27272a;
+    --text: #fafafa;
+    --muted: #71717a;
+    --accent: #a78bfa;
+    --accent-muted: #4c1d95;
+    --success: #22c55e;
+    --warning: #f59e0b;
+    --error: #ef4444;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+               font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+               font-size: 14px; -webkit-font-smoothing: antialiased; overscroll-behavior: none; }
+  body { display: flex; flex-direction: column; }
+  button { background: none; border: none; color: inherit; font: inherit; cursor: pointer; }
+  textarea { background: none; border: none; color: inherit; font: inherit; outline: none; resize: none; }
+  input { background: none; border: none; color: inherit; font: inherit; outline: none; }
+  pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; margin: 0; white-space: pre-wrap; word-break: break-word; }
+
+  #app { display: flex; height: 100dvh; min-height: 0; }
+
+  /* Sidebar */
+  .sidebar {
+    width: 280px; flex-shrink: 0; background: var(--surface); border-right: 1px solid var(--border);
+    display: flex; flex-direction: column;
+  }
+  .sidebar-header { padding: 14px 16px; border-bottom: 1px solid var(--border);
+                    display: flex; align-items: center; gap: 8px; }
+  .sidebar-header h1 { margin: 0; font-size: 16px; font-weight: 700; flex: 1; }
+  .conn-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); }
+  .conn-dot.open { background: var(--success); }
+  .conn-dot.connecting, .conn-dot.authing { background: var(--warning); animation: pulse 1s infinite; }
+  .conn-dot.closed, .conn-dot.auth_failed { background: var(--error); }
+  @keyframes pulse { 50% { opacity: 0.4; } }
+  .new-chat { margin: 12px; padding: 10px 12px; background: var(--accent); color: #0a0a0b;
+              border-radius: 8px; font-weight: 600; text-align: left; }
+  .new-chat:hover { filter: brightness(1.1); }
+  .sessions { flex: 1; overflow-y: auto; padding: 4px 8px; }
+  .session-item { padding: 10px 12px; border-radius: 6px; cursor: pointer; margin-bottom: 2px;
+                  display: flex; align-items: center; gap: 8px; }
+  .session-item:hover { background: var(--surface-2); }
+  .session-item.active { background: var(--surface-2); }
+  .session-title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .session-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); flex-shrink: 0; }
+  .status-dot.running { background: var(--warning); animation: pulse 1s infinite; }
+  .status-dot.error { background: var(--error); }
+  .status-dot.done { background: var(--success); }
+  .empty { padding: 24px 16px; color: var(--muted); font-size: 13px; text-align: center; }
+  .footer { padding: 10px 16px; font-size: 11px; color: var(--muted); border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center; }
+  .footer button { color: var(--muted); }
+  .footer button:hover { color: var(--text); }
+
+  /* Main */
+  .main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+  .main-header { padding: 12px 16px; border-bottom: 1px solid var(--border); display: flex;
+                 align-items: center; gap: 12px; min-height: 50px; }
+  .main-header .menu-btn { display: none; }
+  .main-header h2 { margin: 0; font-size: 15px; font-weight: 600; flex: 1; overflow: hidden;
+                    text-overflow: ellipsis; white-space: nowrap; }
+  .main-header .badge { font-size: 11px; padding: 3px 8px; border-radius: 4px;
+                        background: var(--surface); color: var(--muted); }
+  .badge.running { background: var(--accent-muted); color: var(--accent); }
+  .messages { flex: 1; overflow-y: auto; padding: 16px; }
+  .msg-row { margin-bottom: 12px; display: flex; }
+  .msg-row.user { justify-content: flex-end; }
+  .msg-row.assistant { justify-content: flex-start; }
+  .msg-row.system { justify-content: center; }
+  .bubble { max-width: 88%; padding: 10px 14px; border-radius: 14px; line-height: 1.5; word-break: break-word; }
+  .bubble.user { background: var(--accent-muted); color: var(--text); }
+  .bubble.assistant { background: var(--surface); }
+  .bubble.assistant pre, .bubble.user pre { font-size: 13px; }
+  .tool-card { background: var(--surface-2); border-radius: 8px; padding: 10px 12px;
+               border-left: 3px solid var(--accent); margin-bottom: 8px; }
+  .tool-card.error { border-left-color: var(--error); }
+  .tool-label { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 4px;
+                text-transform: uppercase; letter-spacing: 0.5px; }
+  .tool-body { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px;
+               max-height: 240px; overflow-y: auto; color: var(--text); }
+  .sys-msg { font-size: 12px; color: var(--muted); padding: 4px 10px;
+             border: 1px solid var(--border); border-radius: 4px; }
+  .empty-chat { padding: 80px 16px; text-align: center; color: var(--muted); }
+  .empty-chat h3 { color: var(--text); margin-bottom: 8px; font-weight: 500; }
+
+  /* Input */
+  .input-bar { padding: 12px; border-top: 1px solid var(--border); padding-bottom: max(12px, env(safe-area-inset-bottom)); }
+  .input-shell { background: var(--surface); border-radius: 16px; padding: 8px 8px 8px 14px;
+                 display: flex; align-items: flex-end; gap: 8px; }
+  .input-shell:focus-within { outline: 1px solid var(--accent); }
+  .input-shell textarea { flex: 1; min-height: 24px; max-height: 200px; padding: 4px 0; font-size: 15px; }
+  .send-btn { background: var(--accent); color: #0a0a0b; width: 32px; height: 32px;
+              border-radius: 50%; font-size: 18px; font-weight: 700; flex-shrink: 0;
+              display: flex; align-items: center; justify-content: center; }
+  .send-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+  .stop-btn { color: var(--error); font-weight: 600; padding: 6px 12px; font-size: 13px; }
+
+  .status-bar { padding: 8px 16px; font-size: 12px; color: var(--warning);
+                background: var(--surface); border-top: 1px solid var(--border);
+                display: flex; align-items: center; justify-content: space-between; }
+
+  /* Pair screen */
+  .pair-screen { flex: 1; display: flex; align-items: center; justify-content: center;
+                 padding: 24px; flex-direction: column; gap: 16px; }
+  .pair-screen h2 { font-weight: 500; }
+  .pair-screen input { padding: 10px 12px; background: var(--surface);
+                       border: 1px solid var(--border); border-radius: 8px;
+                       font-family: ui-monospace, monospace; font-size: 12px;
+                       width: 100%; max-width: 360px; }
+  .pair-screen button { padding: 10px 20px; background: var(--accent); color: #0a0a0b;
+                        border-radius: 8px; font-weight: 600; }
+
+  /* Mobile */
+  @media (max-width: 720px) {
+    .sidebar { position: fixed; left: 0; top: 0; bottom: 0; z-index: 10;
+               transform: translateX(-100%); transition: transform 0.2s; width: 80vw; max-width: 320px; }
+    .sidebar.open { transform: translateX(0); box-shadow: 0 0 40px rgba(0,0,0,0.5); }
+    .main-header .menu-btn { display: block; font-size: 20px; padding: 4px 8px; }
+    .backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 9; }
+  }
+</style>
+</head>
+<body>
+<div id="app">loading...</div>
+<script type="module">
+import { h, render } from 'https://esm.sh/preact@10.27.0';
+import { useState, useEffect, useRef, useMemo } from 'https://esm.sh/preact@10.27.0/hooks';
+import htm from 'https://esm.sh/htm@3.1.1';
+
+const html = htm.bind(h);
+const PROTOCOL_VERSION = 1;
+const TOKEN_KEY = 'agentdeck:token:v1';
+
+/* ──────────── Token & WS handling ──────────── */
+
+function readToken() {
+  const url = new URL(window.location.href);
+  const fromQuery = url.searchParams.get('t');
+  if (fromQuery) {
+    localStorage.setItem(TOKEN_KEY, fromQuery);
+    // Strip token from URL so it doesn't sit in browser history
+    url.searchParams.delete('t');
+    window.history.replaceState({}, '', url.toString());
+    return fromQuery;
+  }
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+function clearToken() { localStorage.removeItem(TOKEN_KEY); }
+
+function wsUrl() {
+  const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${proto}//${window.location.host}/ws`;
+}
+
+/* ──────────── Time helpers ──────────── */
+function timeAgo(ts) {
+  const sec = Math.floor((Date.now() - ts) / 1000);
+  if (sec < 60) return `${sec}s`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m`;
+  if (sec < 86400) return `${Math.floor(sec / 3600)}h`;
+  return `${Math.floor(sec / 86400)}d`;
+}
+function prettyJson(v) {
+  try { return JSON.stringify(v, null, 2); } catch { return String(v); }
+}
+
+/* ──────────── Components ──────────── */
+
+function App() {
+  const [token, setToken] = useState(readToken());
+  const [wsState, setWsState] = useState('idle');
+  const [wsError, setWsError] = useState(null);
+  const [sessions, setSessions] = useState([]);
+  const [activeId, setActiveId] = useState(null);
+  const [chat, setChat] = useState(null); // { sessionId, messages, status }
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const wsRef = useRef(null);
+
+  function send(cmd) {
+    const ws = wsRef.current;
+    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(cmd));
+  }
+
+  useEffect(() => {
+    if (!token) return;
+    let socket;
+    let reconnectTimer;
+    let alive = true;
+
+    function connect() {
+      setWsState('connecting');
+      setWsError(null);
+      socket = new WebSocket(wsUrl());
+      wsRef.current = socket;
+
+      socket.onopen = () => {
+        setWsState('authing');
+        socket.send(JSON.stringify({ type: 'auth', token, protocolVersion: PROTOCOL_VERSION }));
+      };
+      socket.onmessage = (ev) => {
+        let evt;
+        try { evt = JSON.parse(ev.data); } catch { return; }
+        handleEvent(evt);
+      };
+      socket.onerror = () => { setWsError('connection error'); };
+      socket.onclose = () => {
+        if (!alive) return;
+        setWsState('closed');
+        reconnectTimer = setTimeout(connect, 1500);
+      };
+    }
+
+    function handleEvent(evt) {
+      switch (evt.type) {
+        case 'auth.ok':
+          setWsState('open');
+          setWsError(null);
+          send({ type: 'session.list' });
+          break;
+        case 'auth.fail':
+          setWsState('auth_failed');
+          setWsError(evt.reason);
+          // Bad token — wipe it so user re-pairs
+          clearToken();
+          setTimeout(() => setToken(null), 400);
+          break;
+        case 'session.list':
+          setSessions(evt.sessions);
+          break;
+        case 'session.created':
+          setSessions((prev) => [evt.session, ...prev.filter((s) => s.id !== evt.session.id)]);
+          setActiveId(evt.session.id);
+          setChat({ sessionId: evt.session.id, messages: [], status: 'idle' });
+          setSidebarOpen(false);
+          break;
+        case 'session.history':
+          setChat({ sessionId: evt.sessionId, messages: evt.messages, status: evt.status });
+          break;
+        case 'session.deleted':
+          setSessions((prev) => prev.filter((s) => s.id !== evt.sessionId));
+          if (activeId === evt.sessionId) { setActiveId(null); setChat(null); }
+          break;
+        case 'agent.message':
+          setChat((prev) => {
+            if (!prev || prev.sessionId !== evt.sessionId) return prev;
+            return { ...prev, messages: [...prev.messages, evt.message] };
+          });
+          setSessions((prev) => {
+            const next = prev.map((s) => s.id === evt.sessionId
+              ? { ...s, lastMessageAt: Date.now(), messageCount: s.messageCount + 1 } : s);
+            next.sort((a, b) => b.lastMessageAt - a.lastMessageAt);
+            return next;
+          });
+          break;
+        case 'agent.status':
+          setChat((prev) => prev && prev.sessionId === evt.sessionId ? { ...prev, status: evt.status } : prev);
+          setSessions((prev) => prev.map((s) => s.id === evt.sessionId ? { ...s, status: evt.status } : s));
+          break;
+        case 'agent.error':
+          setWsError(evt.error);
+          break;
+      }
+    }
+
+    connect();
+    return () => {
+      alive = false;
+      clearTimeout(reconnectTimer);
+      try { socket && socket.close(); } catch {}
+      wsRef.current = null;
+    };
+  }, [token]);
+
+  if (!token) return html`<${PairScreen} onPair=${(t) => { localStorage.setItem(TOKEN_KEY, t); setToken(t); }} />`;
+
+  function createSession() { send({ type: 'session.create', agent: 'claude' }); }
+  function openSession(id) {
+    setActiveId(id);
+    setChat({ sessionId: id, messages: [], status: 'idle' });
+    send({ type: 'session.resume', sessionId: id });
+    setSidebarOpen(false);
+  }
+  function sendPrompt(text) { if (chat) send({ type: 'prompt', sessionId: chat.sessionId, text }); }
+  function stopChat() { if (chat) send({ type: 'session.stop', sessionId: chat.sessionId }); }
+  function unpair() { clearToken(); setToken(null); }
+
+  return html`
+    <${Sidebar}
+      sessions=${sessions}
+      activeId=${activeId}
+      wsState=${wsState}
+      onCreate=${createSession}
+      onOpen=${openSession}
+      onUnpair=${unpair}
+      open=${sidebarOpen}
+      onClose=${() => setSidebarOpen(false)} />
+    <main class="main">
+      <${MainArea}
+        chat=${chat}
+        session=${sessions.find((s) => s.id === activeId)}
+        wsState=${wsState}
+        wsError=${wsError}
+        onSend=${sendPrompt}
+        onStop=${stopChat}
+        onOpenSidebar=${() => setSidebarOpen(true)} />
+    </main>
+    ${sidebarOpen && html`<div class="backdrop" onClick=${() => setSidebarOpen(false)}></div>`}
+  `;
+}
+
+function PairScreen({ onPair }) {
+  const [input, setInput] = useState('');
+  function handleSubmit() {
+    const t = input.trim();
+    if (!t) return;
+    onPair(t);
+  }
+  return html`
+    <div class="pair-screen">
+      <h2>Pair this device</h2>
+      <p style="color: var(--muted); text-align: center; margin: 0; max-width: 360px;">
+        Paste the pairing token from your laptop, or open the dashboard URL with <code>?t=&lt;token&gt;</code>.
+      </p>
+      <input
+        type="password"
+        autocapitalize="off"
+        autocorrect="off"
+        autocomplete="off"
+        spellcheck="false"
+        value=${input}
+        onInput=${(e) => setInput(e.target.value)}
+        onKeyDown=${(e) => e.key === 'Enter' && handleSubmit()}
+        placeholder="paste token here" />
+      <button onClick=${handleSubmit}>Pair</button>
+    </div>
+  `;
+}
+
+function Sidebar({ sessions, activeId, wsState, onCreate, onOpen, onUnpair, open, onClose }) {
+  return html`
+    <aside class=${'sidebar' + (open ? ' open' : '')}>
+      <div class="sidebar-header">
+        <div class=${'conn-dot ' + wsState}></div>
+        <h1>AgentDeck</h1>
+      </div>
+      <button class="new-chat" onClick=${onCreate}>+ New chat</button>
+      <div class="sessions">
+        ${sessions.length === 0
+          ? html`<div class="empty">No chats yet.<br/>Tap “New chat” to start.</div>`
+          : sessions.map((s) => html`
+              <div
+                key=${s.id}
+                class=${'session-item' + (s.id === activeId ? ' active' : '')}
+                onClick=${() => onOpen(s.id)}>
+                <div style="flex: 1; min-width: 0;">
+                  <div class="session-title">${s.title}</div>
+                  <div class="session-meta">${s.messageCount} msgs · ${timeAgo(s.lastMessageAt)} ago</div>
+                </div>
+                <div class=${'status-dot ' + s.status}></div>
+              </div>
+            `)}
+      </div>
+      <div class="footer">
+        <span>${wsState === 'open' ? 'connected' : wsState}</span>
+        <button onClick=${onUnpair}>Unpair</button>
+      </div>
+    </aside>
+  `;
+}
+
+function MainArea({ chat, session, wsState, wsError, onSend, onStop, onOpenSidebar }) {
+  if (!chat) {
+    return html`
+      <header class="main-header">
+        <button class="menu-btn" onClick=${onOpenSidebar}>☰</button>
+        <h2>AgentDeck</h2>
+      </header>
+      <div class="empty-chat">
+        <h3>Pick a chat or start a new one</h3>
+        <p>${wsState === 'open' ? 'Connected to the laptop. Tap “New chat” in the sidebar.' : `Status: ${wsState}${wsError ? ' · ' + wsError : ''}`}</p>
+      </div>
+    `;
+  }
+
+  return html`
+    <header class="main-header">
+      <button class="menu-btn" onClick=${onOpenSidebar}>☰</button>
+      <h2>${session?.title ?? 'Chat'}</h2>
+      ${chat.status === 'running' && html`<span class="badge running">working</span>`}
+      ${chat.status === 'error' && html`<span class="badge" style="color: var(--error);">error</span>`}
+    </header>
+    <${MessageList} messages=${chat.messages} status=${chat.status} />
+    ${chat.status === 'running' && html`
+      <div class="status-bar">
+        <span>Claude is working...</span>
+        <button class="stop-btn" onClick=${onStop}>Stop</button>
+      </div>`}
+    <${InputBar} disabled=${chat.status === 'running'} onSend=${onSend} />
+  `;
+}
+
+function MessageList({ messages, status }) {
+  const ref = useRef(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollTop = el.scrollHeight;
+  }, [messages.length, status]);
+
+  return html`
+    <div class="messages" ref=${ref}>
+      ${messages.length === 0 && status !== 'running'
+        ? html`<div class="empty-chat"><h3>New chat</h3><p>Send a prompt to wake Claude up.</p></div>`
+        : messages.map((m, i) => html`<${MessageRow} key=${i} msg=${m} />`)}
+    </div>
+  `;
+}
+
+function MessageRow({ msg }) {
+  if (msg.type === 'user') {
+    return html`<div class="msg-row user"><div class="bubble user"><pre>${msg.text ?? ''}</pre></div></div>`;
+  }
+  if (msg.type === 'assistant') {
+    if (msg.tool) {
+      return html`
+        <div class="msg-row assistant">
+          <div class="tool-card">
+            <div class="tool-label">Tool · ${msg.tool.name}</div>
+            ${msg.tool.input != null && html`<div class="tool-body"><pre>${prettyJson(msg.tool.input)}</pre></div>`}
+          </div>
+        </div>`;
+    }
+    return html`<div class="msg-row assistant"><div class="bubble assistant"><pre>${msg.text ?? ''}</pre></div></div>`;
+  }
+  if (msg.type === 'tool_result' || msg.toolResult) {
+    const out = msg.toolResult?.output;
+    return html`
+      <div class="msg-row assistant">
+        <div class=${'tool-card' + (msg.toolResult?.isError ? ' error' : '')}>
+          <div class="tool-label">Tool result${msg.toolResult?.isError ? ' (error)' : ''}</div>
+          <div class="tool-body"><pre>${typeof out === 'string' ? out : prettyJson(out)}</pre></div>
+        </div>
+      </div>`;
+  }
+  if (msg.type === 'result' || msg.type === 'system') {
+    return html`<div class="msg-row system"><div class="sys-msg">${msg.text ?? msg.type}</div></div>`;
+  }
+  if (msg.type === 'error') {
+    return html`<div class="msg-row system"><div class="sys-msg" style="color: var(--error); border-color: var(--error);">${msg.text ?? 'error'}</div></div>`;
+  }
+  return null;
+}
+
+function InputBar({ disabled, onSend }) {
+  const [val, setVal] = useState('');
+  const taRef = useRef(null);
+
+  function autoresize() {
+    const ta = taRef.current;
+    if (!ta) return;
+    ta.style.height = 'auto';
+    ta.style.height = Math.min(200, ta.scrollHeight) + 'px';
+  }
+
+  function submit() {
+    const text = val.trim();
+    if (!text || disabled) return;
+    onSend(text);
+    setVal('');
+    requestAnimationFrame(autoresize);
+  }
+
+  return html`
+    <div class="input-bar">
+      <div class="input-shell">
+        <textarea
+          ref=${taRef}
+          value=${val}
+          disabled=${disabled}
+          placeholder=${disabled ? 'Wait for current run...' : 'Message Claude...'}
+          onInput=${(e) => { setVal(e.target.value); autoresize(); }}
+          onKeyDown=${(e) => {
+            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submit(); }
+          }}
+          rows="1" />
+        <button class="send-btn" disabled=${disabled || !val.trim()} onClick=${submit}>↑</button>
+      </div>
+    </div>
+  `;
+}
+
+render(html`<${App} />`, document.getElementById('app'));
+</script>
+</body>
+</html>

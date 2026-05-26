@@ -1,13 +1,11 @@
 #!/usr/bin/env bun
+import qrcode from "qrcode-terminal";
 import { startServer } from "./server.ts";
 import { startTunnel } from "./tunnel.ts";
 import { getLanIp } from "./net.ts";
 import {
-  buildPairingPayload,
   loadOrCreateServerName,
   loadOrCreateToken,
-  pairingDeepLink,
-  printPairingQR,
   rotateToken,
 } from "./pair.ts";
 
@@ -23,9 +21,9 @@ if (SHOW_HELP) {
   console.log(`AgentDeck CLI v${VERSION}
 
 Usage:
-  agentdeck                  Start server + Cloudflare tunnel, print QR
-  agentdeck --no-tunnel      LAN-only mode (skip tunnel; QR uses local IP)
-  agentdeck --rotate-token   Generate a fresh pairing token (invalidates old)
+  agentdeck                  Start server + Cloudflare tunnel, print dashboard URL
+  agentdeck --no-tunnel      LAN-only mode (use laptop's LAN IP, no tunnel)
+  agentdeck --rotate-token   Generate a fresh pairing token (invalidates old links)
   agentdeck --help           Show this
 
 Env:
@@ -73,14 +71,22 @@ if (NO_TUNNEL) {
   }
 }
 
-const payload = buildPairingPayload({ url: publicUrl, token, name: serverName });
+// One-shot tokenized dashboard URL. Open in any browser to pair this device;
+// the page strips the token from the URL and stores it in localStorage so
+// subsequent reloads stay paired without exposing the token in history.
+const dashboardUrl = `${publicUrl}/?t=${encodeURIComponent(token)}`;
+
 console.log("");
-console.log("───── Scan with AgentDeck mobile app ─────");
-printPairingQR(payload);
-console.log(pairingDeepLink(payload));
-console.log("──────────────────────────────────────────");
+console.log("──────────────── Open this URL on any device ────────────────");
 console.log("");
-console.log("Token rotation: `agentdeck --rotate-token` (invalidates paired phones)");
+console.log(`  ${dashboardUrl}`);
+console.log("");
+console.log("  (Scan QR below from your phone to open in mobile browser)");
+console.log("");
+qrcode.generate(dashboardUrl, { small: true });
+console.log("─────────────────────────────────────────────────────────────");
+console.log("");
+console.log("Token rotation: `agentdeck --rotate-token` (invalidates the link above)");
 console.log("Press Ctrl+C to stop.");
 
 let shuttingDown = false;

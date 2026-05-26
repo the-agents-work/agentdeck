@@ -1,8 +1,13 @@
 import type { ServerWebSocket } from "bun";
+import { fileURLToPath } from "node:url";
+import { dirname, resolve } from "node:path";
 import type { AgentDeckCommand, AgentDeckEvent } from "@agentdeck/protocol";
 import { PROTOCOL_VERSION } from "@agentdeck/protocol";
 import { SessionStore } from "./store.ts";
 import { Runner } from "./runner.ts";
+
+const STATIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../static");
+const DASHBOARD_FILE = resolve(STATIC_DIR, "dashboard.html");
 
 type ConnData = { authed: boolean; remote: string };
 
@@ -44,19 +49,35 @@ export function startServer(opts: {
 
   const server = Bun.serve<ConnData, never>({
     port: opts.port,
-    fetch(req, srv) {
+    async fetch(req, srv) {
       const url = new URL(req.url);
       if (url.pathname === "/health") {
         return new Response("ok");
       }
-      if (url.pathname === "/" || url.pathname === "/ws") {
+
+      // WebSocket upgrade — distinct path so we don't conflict with the
+      // dashboard served at "/".
+      if (url.pathname === "/ws") {
         const ok = srv.upgrade(req, {
           data: { authed: false, remote: req.headers.get("x-forwarded-for") ?? "?" },
         });
         if (ok) return undefined;
         return new Response("websocket upgrade failed", { status: 400 });
       }
-      return new Response("AgentDeck CLI is running", { status: 200 });
+
+      // Dashboard SPA. Served at /; deep links are SPA-internal so we never
+      // need a separate route. ?t=TOKEN is read by the client-side JS.
+      if (url.pathname === "/" || url.pathname === "/dashboard.html") {
+        const file = Bun.file(DASHBOARD_FILE);
+        return new Response(file, {
+          headers: {
+            "content-type": "text/html; charset=utf-8",
+            "cache-control": "no-cache",
+          },
+        });
+      }
+
+      return new Response("not found", { status: 404 });
     },
     websocket: {
       open(ws) {
