@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import type { AgentMessage } from "@agentdeck/protocol";
+import type { AgentMessage } from "@pocket-agents/protocol";
 import type {
   AgentAdapter,
   AdapterRunOptions,
@@ -117,7 +117,7 @@ export class CodexCliAdapter implements AgentAdapter {
 }
 
 function spawnCodex(opts: AdapterRunOptions) {
-  const bin = process.env.AGENTDECK_CODEX_BIN || "codex";
+  const bin = process.env.POCKETAGENTS_CODEX_BIN || "codex";
   const args = buildCodexArgs(opts);
 
   return spawn(bin, args, {
@@ -130,13 +130,13 @@ function spawnCodex(opts: AdapterRunOptions) {
 function buildCodexArgs(opts: AdapterRunOptions): string[] {
   const args: string[] = [];
 
-  const model = process.env.AGENTDECK_CODEX_MODEL;
+  const model = process.env.POCKETAGENTS_CODEX_MODEL;
   if (model) args.push("-m", model);
 
   // Remote control should not hang on local approval prompts. The sandbox can
-  // still be tightened with AGENTDECK_CODEX_SANDBOX=workspace-write/read-only.
-  args.push("-a", process.env.AGENTDECK_CODEX_APPROVAL || "never");
-  args.push("-s", process.env.AGENTDECK_CODEX_SANDBOX || "danger-full-access");
+  // still be tightened with POCKETAGENTS_CODEX_SANDBOX=workspace-write/read-only.
+  args.push("-a", process.env.POCKETAGENTS_CODEX_APPROVAL || "never");
+  args.push("-s", process.env.POCKETAGENTS_CODEX_SANDBOX || "danger-full-access");
 
   if (opts.cwd) args.push("-C", opts.cwd);
 

@@ -8,7 +8,7 @@ export { CodexCliAdapter } from "./codex.js";
 import { ClaudeCodeAdapter } from "./claude.js";
 import { CodexCliAdapter } from "./codex.js";
 import type { AgentAdapter } from "./types.js";
-import type { AgentName } from "@agentdeck/protocol";
+import type { AgentName } from "@pocket-agents/protocol";
 
 export const adapters: Record<AgentName, AgentAdapter> = {
   claude: new ClaudeCodeAdapter(),

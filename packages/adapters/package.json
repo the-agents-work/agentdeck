@@ -1,5 +1,5 @@
 {
-  "name": "@agentdeck/adapters",
+  "name": "@pocket-agents/adapters",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentdeck/protocol": "*",
+    "@pocket-agents/protocol": "*",
     "@anthropic-ai/claude-agent-sdk": "^0.3.0"
   },
   "devDependencies": {

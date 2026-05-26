@@ -13,7 +13,7 @@
       content="black-translucent"
     />
     <meta name="theme-color" content="#0b0b0c" />
-    <title>AgentDeck</title>
+    <title>Pocket Agents</title>
     <style>
       /* ============================================================
          Design tokens — Manus-inspired dark palette
@@ -1137,7 +1137,7 @@
         });
       }
       const PROTOCOL_VERSION = 1;
-      const TOKEN_KEY = "agentdeck:token:v1";
+      const TOKEN_KEY = "pocket-agents:token:v1";
 
       /* ──────────── Token & WS handling ──────────── */
 
@@ -1493,7 +1493,7 @@
                         type: "system",
                         raw: {},
                         text:
-                          "Slash commands like /goal and /init are Claude Code TUI features and don't work through AgentDeck. Type the request in plain words instead.",
+                          "Slash commands like /goal and /init are Claude Code TUI features and don't work through Pocket Agents. Type the request in plain words instead.",
                       },
                     ],
                   }
@@ -1573,7 +1573,7 @@
             <h2>Enter PIN</h2>
             <p>
               This laptop requires a second factor. Enter the PIN you set with
-              <code>agentdeck --set-pin</code>.
+              <code>pocket-agents --set-pin</code>.
             </p>
             <input
               ref=${ref}
@@ -1659,7 +1659,7 @@
           <aside class=${"sidebar" + (open ? " open" : "")}>
             <div class="sidebar-header">
               <div class=${"conn-dot " + wsState}></div>
-              <h1>AgentDeck</h1>
+              <h1>Pocket Agents</h1>
               <button
                 class="sidebar-close"
                 onClick=${onClose}
@@ -1756,7 +1756,7 @@
               >
                 ☰
               </button>
-              <h2>AgentDeck</h2>
+              <h2>Pocket Agents</h2>
             </header>
             <${EmptyHero}
               selectedAgent=${selectedAgent}

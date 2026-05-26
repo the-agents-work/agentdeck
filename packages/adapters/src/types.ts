@@ -1,4 +1,4 @@
-import type { AgentMessage, AgentName } from "@agentdeck/protocol";
+import type { AgentMessage, AgentName } from "@pocket-agents/protocol";
 
 export type AdapterRunOptions = {
   prompt: string;

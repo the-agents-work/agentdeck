@@ -1,5 +1,5 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
-import type { AgentMessage } from "@agentdeck/protocol";
+import type { AgentMessage } from "@pocket-agents/protocol";
 import type { AgentAdapter, AdapterRunOptions, AdapterRunResult } from "./types.js";
 
 /**
@@ -21,15 +21,15 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     let nativeSessionId: string | null = opts.resumeFromNativeId ?? null;
     let ok = true;
 
-    // Permission mode: AgentDeck is a remote control for YOUR OWN laptop, so we
+    // Permission mode: Pocket Agents is a remote control for YOUR OWN laptop, so we
     // bypass permission gates by default. Without this, every tool call (mkdir,
     // Write, Edit, Bash) waits on an interactive prompt that the dashboard has
     // no UI to surface, hanging the run. This matches the user's local
     // `claude --dangerously-skip-permissions` posture.
     //
-    // Override via env: AGENTDECK_PERMISSION_MODE=default (or acceptEdits, etc.)
+    // Override via env: POCKETAGENTS_PERMISSION_MODE=default (or acceptEdits, etc.)
     const permissionMode =
-      process.env.AGENTDECK_PERMISSION_MODE || "bypassPermissions";
+      process.env.POCKETAGENTS_PERMISSION_MODE || "bypassPermissions";
 
     const sdkOptions: Record<string, unknown> = {
       cwd: opts.cwd,

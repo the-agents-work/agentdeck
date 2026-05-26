@@ -27,22 +27,22 @@ const VERSION = "0.1.0";
 
 const argv = process.argv.slice(2);
 const args = new Set(argv);
-const NO_TUNNEL = args.has("--no-tunnel") || !!process.env.AGENTDECK_NO_TUNNEL;
+const NO_TUNNEL = args.has("--no-tunnel") || !!process.env.POCKETAGENTS_NO_TUNNEL;
 const SHOW_HELP = args.has("--help") || args.has("-h");
 const ROTATE = args.has("--rotate-token");
-const PORT = Number(process.env.AGENTDECK_PORT ?? 3737);
+const PORT = Number(process.env.POCKETAGENTS_PORT ?? 3737);
 
 // One-shot PIN management commands. Run them then exit — never start the server.
 const setPinIdx = argv.indexOf("--set-pin");
 if (setPinIdx >= 0) {
   const newPin = argv[setPinIdx + 1];
   if (!newPin || newPin.length < 4 || newPin.length > 10) {
-    console.error("Usage: agentdeck --set-pin <4-10 chars>");
+    console.error("Usage: pocket-agents --set-pin <4-10 chars>");
     process.exit(2);
   }
   savePin(newPin);
-  console.log("PIN saved to ~/.agentdeck/pin (mode 0600).");
-  console.log("Next start of `agentdeck` will require this PIN after pairing.");
+  console.log("PIN saved to ~/.pocket-agents/pin (mode 0600).");
+  console.log("Next start of `pocket-agents` will require this PIN after pairing.");
   process.exit(0);
 }
 if (args.has("--clear-pin")) {
@@ -60,30 +60,30 @@ if (args.has("--gen-pin")) {
   console.log("");
   console.log("──────────────────────────");
   console.log("");
-  console.log("Saved to ~/.agentdeck/pin (mode 0600).");
+  console.log("Saved to ~/.pocket-agents/pin (mode 0600).");
   console.log("Remember this PIN — it won't be printed again unless you rotate.");
   process.exit(0);
 }
 
 if (SHOW_HELP) {
-  console.log(`AgentDeck CLI v${VERSION}
+  console.log(`Pocket Agents CLI v${VERSION}
 
 Usage:
-  agentdeck                       Start server + Cloudflare tunnel, print dashboard URL
-  agentdeck --no-tunnel           LAN-only mode (use laptop's LAN IP, no tunnel)
-  agentdeck --rotate-token        Generate a fresh pairing token (invalidates old links)
-  agentdeck --gen-pin             Generate a random 6-digit PIN and print it once.
-  agentdeck --set-pin <4-10>      Save a PIN you choose. Dashboard prompts after pairing.
-  agentdeck --clear-pin           Remove the saved PIN.
-  agentdeck --help                Show this
+  pocket-agents                   Start server + Cloudflare tunnel, print dashboard URL
+  pocket-agents --no-tunnel           LAN-only mode (use laptop's LAN IP, no tunnel)
+  pocket-agents --rotate-token        Generate a fresh pairing token (invalidates old links)
+  pocket-agents --gen-pin             Generate a random 6-digit PIN and print it once.
+  pocket-agents --set-pin <4-10>      Save a PIN you choose. Dashboard prompts after pairing.
+  pocket-agents --clear-pin           Remove the saved PIN.
+  pocket-agents --help                Show this
 
 Env:
-  AGENTDECK_PORT       Server port (default: 3737)
-  AGENTDECK_HOME       Config + db dir (default: ~/.agentdeck)
-  AGENTDECK_NO_TUNNEL  Skip cloudflared
-  AGENTDECK_PIN        PIN value (overrides ~/.agentdeck/pin file)
+  POCKETAGENTS_PORT       Server port (default: 3737)
+  POCKETAGENTS_HOME       Config + db dir (default: ~/.pocket-agents)
+  POCKETAGENTS_NO_TUNNEL  Skip cloudflared
+  POCKETAGENTS_PIN        PIN value (overrides ~/.pocket-agents/pin file)
 
-Docs: https://github.com/the-agents-work/agentdeck
+Docs: https://github.com/the-agents-work/pocket-agents
 `);
   process.exit(0);
 }
@@ -92,9 +92,9 @@ const token = ROTATE ? rotateToken() : loadOrCreateToken();
 const serverName = loadOrCreateServerName();
 const pin = loadPin();
 
-console.log(`AgentDeck v${VERSION}`);
+console.log(`Pocket Agents v${VERSION}`);
 console.log(`Server name: ${serverName}`);
-console.log(`Config dir:  ${process.env.AGENTDECK_HOME ?? "~/.agentdeck"}`);
+console.log(`Config dir:  ${process.env.POCKETAGENTS_HOME ?? "~/.pocket-agents"}`);
 console.log(
   `PIN gate:    ${pin ? "ENABLED (dashboard will prompt)" : "off (use --gen-pin or --set-pin to enable)"}`,
 );
@@ -142,7 +142,7 @@ console.log("");
 qrcode.generate(dashboardUrl, { small: true });
 console.log("─────────────────────────────────────────────────────────────");
 console.log("");
-console.log("Token rotation: `agentdeck --rotate-token` (invalidates the link above)");
+console.log("Token rotation: `pocket-agents --rotate-token` (invalidates the link above)");
 console.log("Press Ctrl+C to stop.");
 
 let shuttingDown = false;

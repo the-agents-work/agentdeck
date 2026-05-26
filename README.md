@@ -1,4 +1,4 @@
-# AgentDeck
+# Pocket Agents
 
 > Pocket-sized remote control for coding agents. One command on your laptop, open a link on any device, chat with Claude Code or Codex from wherever you are.
 
@@ -8,10 +8,10 @@
 │ (Browser)│         (WSS)          │  (Bun)   │                         │  Codex CLI      │
 └──────────┘                        └──────────┘                         └─────────────────┘
         open URL           persists sessions in            spawns agent adapters
-        once               ~/.agentdeck/agentdeck.db        with session resume
+        once               ~/.pocket-agents/pocket-agents.db        with session resume
 ```
 
-**Why?** Long agent runs feel terrible when you're chained to a terminal. AgentDeck lets you fire off a prompt, lock your phone, and come back when the work's done.
+**Why?** Long agent runs feel terrible when you're chained to a terminal. Pocket Agents lets you fire off a prompt, lock your phone, and come back when the work's done.
 
 **No app to install.** The dashboard runs in any browser. Sessions persist on the laptop, so you can close the tab and re-open it later — chat history stays.
 
@@ -22,13 +22,13 @@
 ## Quick start
 
 ```bash
-git clone https://github.com/the-agents-work/agentdeck
-cd agentdeck
+git clone https://github.com/the-agents-work/pocket-agents
+cd pocket-agents
 npm install
 bun apps/cli/src/index.ts
 ```
 
-On first run, AgentDeck:
+On first run, Pocket Agents:
 
 1. Downloads `cloudflared` (~8MB, once) and starts a free Cloudflare quick tunnel.
 2. Prints a **tokenized dashboard URL** like `https://xxx-yyy-zzz.trycloudflare.com/?t=ABCD...`
@@ -49,41 +49,41 @@ That's the whole flow. No native app, no Expo, no signup.
 | `--clear-pin`         | Remove the saved PIN (PIN gate off).                                           |
 | `--help`              | Show help.                                                                     |
 
-Env: `AGENTDECK_PORT` (default `3737`), `AGENTDECK_HOME` (default `~/.agentdeck`), `AGENTDECK_PIN` (overrides the `pin` file).
+Env: `POCKETAGENTS_PORT` (default `3737`), `POCKETAGENTS_HOME` (default `~/.pocket-agents`), `POCKETAGENTS_PIN` (overrides the `pin` file).
 
 ### Adding a PIN (recommended)
 
 The pairing token alone is enough for most use, but if the dashboard URL might end up in a screenshot or chat log, add a second factor:
 
 ```bash
-agentdeck --gen-pin           # ~/.agentdeck/pin gets a random 6-digit code
+pocket-agents --gen-pin           # ~/.pocket-agents/pin gets a random 6-digit code
 # OR
-agentdeck --set-pin 408215    # pick your own
+pocket-agents --set-pin 408215    # pick your own
 ```
 
-Restart `agentdeck`; the dashboard will now prompt for the PIN after pairing. Five wrong attempts drops the socket. `--clear-pin` removes it.
+Restart `pocket-agents`; the dashboard will now prompt for the PIN after pairing. Five wrong attempts drops the socket. `--clear-pin` removes it.
 
 ## Slash commands
 
-Claude Code's interactive slash commands (`/help`, `/clear`, `/init`, `/goal`, `/loop`, `/security-review`, `/agents`, …) are **TUI-only features of the Claude Code CLI** — they aren't available through the Claude Agent SDK that AgentDeck uses. Asking the model `/goal foo` over the SDK gets you a literal `"/goal isn't available in this environment."` reply.
+Claude Code's interactive slash commands (`/help`, `/clear`, `/init`, `/goal`, `/loop`, `/security-review`, `/agents`, …) are **TUI-only features of the Claude Code CLI** — they aren't available through the Claude Agent SDK that Pocket Agents uses. Asking the model `/goal foo` over the SDK gets you a literal `"/goal isn't available in this environment."` reply.
 
-AgentDeck detects slash-prefixed input and shows a hint instead of round-tripping to the model. If you want the equivalent of `/goal`, type the request as plain English ("keep working until X happens, don't stop early") and Claude will follow.
+Pocket Agents detects slash-prefixed input and shows a hint instead of round-tripping to the model. If you want the equivalent of `/goal`, type the request as plain English ("keep working until X happens, don't stop early") and Claude will follow.
 
-Hooks you've configured in `~/.claude/settings.json` still fire as normal — AgentDeck surfaces a small `⚡ hook · started` chip in the chat when one runs.
+Hooks you've configured in `~/.claude/settings.json` still fire as normal — Pocket Agents surfaces a small `⚡ hook · started` chip in the chat when one runs.
 
 ## How auth works
 
-You don't need to configure Claude API keys. AgentDeck wraps `@anthropic-ai/claude-agent-sdk`, which inherits credentials in this order:
+You don't need to configure Claude API keys. Pocket Agents wraps `@anthropic-ai/claude-agent-sdk`, which inherits credentials in this order:
 
 1. `ANTHROPIC_API_KEY` env var (pay-per-use API)
 2. `~/.claude/credentials.json` from `claude login` (your Pro/Max subscription)
 
-Most devs already have step 2 set up, so AgentDeck just works on your existing subscription.
+Most devs already have step 2 set up, so Pocket Agents just works on your existing subscription.
 
 ## Architecture
 
 ```
-agentdeck/
+pocket-agents/
 ├── apps/
 │   └── cli/                Bun server: WS + agent runner + static dashboard
 │       ├── src/index.ts    Entrypoint: tunnel + URL printout
@@ -113,23 +113,23 @@ Server responds with `auth.ok` (or `auth.fail`). Subsequent commands: `session.l
 
 Each conversation has two IDs:
 
-- **AgentDeck session id** (UUID) — the unit of conversation the dashboard sees. Stable across agents.
+- **Pocket Agents session id** (UUID) — the unit of conversation the dashboard sees. Stable across agents.
 - **Native session id** (Claude SDK `session_id` or Codex thread id) — tracked per turn so the adapter can resume on the next prompt, keeping the conversation context server-side.
 
 When the browser reconnects, it requests `session.resume`; server sends the full message history from SQLite, then live-streams new events. You can close the tab and come back — context is intact.
 
 ## Codex CLI support
 
-AgentDeck runs Codex through `codex exec --json` and resumes each chat with `codex exec resume`.
+Pocket Agents runs Codex through `codex exec --json` and resumes each chat with `codex exec resume`.
 
 Defaults:
 
-- `AGENTDECK_CODEX_BIN=codex`
-- `AGENTDECK_CODEX_APPROVAL=never`
-- `AGENTDECK_CODEX_SANDBOX=danger-full-access`
-- `AGENTDECK_CODEX_MODEL` unset, so Codex uses your local config
+- `POCKETAGENTS_CODEX_BIN=codex`
+- `POCKETAGENTS_CODEX_APPROVAL=never`
+- `POCKETAGENTS_CODEX_SANDBOX=danger-full-access`
+- `POCKETAGENTS_CODEX_MODEL` unset, so Codex uses your local config
 
-Set `AGENTDECK_CODEX_SANDBOX=workspace-write` or `read-only` if you want a tighter remote-control posture.
+Set `POCKETAGENTS_CODEX_SANDBOX=workspace-write` or `read-only` if you want a tighter remote-control posture.
 
 ## Adding a new adapter (Aider, ...)
 
@@ -161,11 +161,11 @@ Then register it in `packages/adapters/src/index.ts`.
 - The pairing token is the only auth between browser and laptop. The dashboard URL contains it as `?t=...` once, after which it lives in `localStorage` on the device.
 - `--rotate-token` invalidates the existing token. Use it if a link leaked.
 - The Cloudflare tunnel is publicly reachable; WS auth is what keeps strangers out. Treat the dashboard URL like a password.
-- Database (`~/.agentdeck/agentdeck.db`) stores conversation history in plaintext. Don't share.
+- Database (`~/.pocket-agents/pocket-agents.db`) stores conversation history in plaintext. Don't share.
 
 ## Why a hosted browser instead of a native app?
 
-The earliest version of AgentDeck was an Expo React Native app. We dropped it because:
+The earliest version of Pocket Agents was an Expo React Native app. We dropped it because:
 
 1. **Zero install** — anyone with a browser can use it instantly.
 2. **Cross-device** — same link works on phone, tablet, or another laptop.

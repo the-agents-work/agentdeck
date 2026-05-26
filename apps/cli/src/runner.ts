@@ -1,5 +1,5 @@
-import type { AgentMessage, SessionStatus } from "@agentdeck/protocol";
-import { adapters } from "@agentdeck/adapters";
+import type { AgentMessage, SessionStatus } from "@pocket-agents/protocol";
+import { adapters } from "@pocket-agents/adapters";
 import { SessionStore } from "./store.ts";
 
 type Subscriber = (event:

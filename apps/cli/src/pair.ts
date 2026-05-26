@@ -2,8 +2,8 @@ import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { hostname } from "node:os";
 import { randomBytes } from "node:crypto";
 import qrcode from "qrcode-terminal";
-import type { PairingPayload } from "@agentdeck/protocol";
-import { PROTOCOL_VERSION } from "@agentdeck/protocol";
+import type { PairingPayload } from "@pocket-agents/protocol";
+import { PROTOCOL_VERSION } from "@pocket-agents/protocol";
 import { TOKEN_PATH, SERVER_NAME_PATH, PIN_PATH, ensureConfigDir } from "./paths.ts";
 
 export function loadOrCreateToken(): string {
@@ -35,15 +35,15 @@ export function rotateToken(): string {
 
 /**
  * Load the optional second-factor PIN. Resolution order:
- *   1. `AGENTDECK_PIN` env var (wins, useful for tmux/launchd)
- *   2. `~/.agentdeck/pin` file (created by user with `agentdeck --set-pin <pin>`)
+ *   1. `POCKETAGENTS_PIN` env var (wins, useful for tmux/launchd)
+ *   2. `~/.pocket-agents/pin` file (created by user with `pocket-agents --set-pin <pin>`)
  *   3. null — no PIN gate
  *
  * PINs are stored in plaintext (mode 0600). The token + tunnel HTTPS already
  * provide the primary auth; the PIN is a leak mitigation, not a crypto secret.
  */
 export function loadPin(): string | null {
-  const envPin = process.env.AGENTDECK_PIN?.trim();
+  const envPin = process.env.POCKETAGENTS_PIN?.trim();
   if (envPin) return envPin;
   if (!existsSync(PIN_PATH)) return null;
   const fromFile = readFileSync(PIN_PATH, "utf8").trim();
@@ -91,5 +91,5 @@ export function pairingDeepLink(payload: PairingPayload): string {
     v: String(payload.v),
   });
   if (payload.name) params.set("name", payload.name);
-  return `agentdeck://pair?${params.toString()}`;
+  return `pocketagents://pair?${params.toString()}`;
 }

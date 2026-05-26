@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import type { AgentMessage, AgentName, SessionStatus, SessionSummary } from "@agentdeck/protocol";
+import type { AgentMessage, AgentName, SessionStatus, SessionSummary } from "@pocket-agents/protocol";
 import { DB_PATH, ensureConfigDir } from "./paths.ts";
 
 /**

@@ -3,11 +3,11 @@ import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
 import { homedir } from "node:os";
 import type {
-  AgentDeckCommand,
-  AgentDeckEvent,
+  Pocket AgentsCommand,
+  Pocket AgentsEvent,
   AgentName,
-} from "@agentdeck/protocol";
-import { PROTOCOL_VERSION } from "@agentdeck/protocol";
+} from "@pocket-agents/protocol";
+import { PROTOCOL_VERSION } from "@pocket-agents/protocol";
 import { SessionStore } from "./store.ts";
 import { Runner } from "./runner.ts";
 
@@ -20,8 +20,8 @@ const DASHBOARD_FILE = resolve(STATIC_DIR, "dashboard.html");
 // Where agents spawn by default for fresh sessions. We pick $HOME (not the
 // CLI's cwd, which is wherever the user happened to run `bun ...` from) so the
 // agent can freely `git clone`, scaffold projects, and explore without being
-// scoped to the agentdeck repo itself. Override with AGENTDECK_DEFAULT_CWD.
-const DEFAULT_SESSION_CWD = process.env.AGENTDECK_DEFAULT_CWD || homedir();
+// scoped to the pocket-agents repo itself. Override with POCKETAGENTS_DEFAULT_CWD.
+const DEFAULT_SESSION_CWD = process.env.POCKETAGENTS_DEFAULT_CWD || homedir();
 const SUPPORTED_AGENTS: AgentName[] = ["claude", "codex"];
 
 // How many wrong PIN attempts per WS connection before we drop the socket.
@@ -57,7 +57,7 @@ export function startServer(opts: {
   // Fan out runner events to all authed sockets
   const sockets = new Set<ServerWebSocket<ConnData>>();
   runner.subscribe((event) => {
-    let wire: AgentDeckEvent;
+    let wire: Pocket AgentsEvent;
     if (event.type === "message") {
       wire = {
         type: "agent.message",
@@ -134,11 +134,11 @@ export function startServer(opts: {
         sockets.delete(ws);
       },
       async message(ws, raw) {
-        let cmd: AgentDeckCommand;
+        let cmd: Pocket AgentsCommand;
         try {
           cmd = JSON.parse(
             typeof raw === "string" ? raw : raw.toString(),
-          ) as AgentDeckCommand;
+          ) as Pocket AgentsCommand;
         } catch {
           return send(ws, { type: "auth.fail", reason: "invalid json" });
         }
@@ -300,7 +300,7 @@ function constantTimeEqual(a: string, b: string): boolean {
   return diff === 0;
 }
 
-function send(ws: ServerWebSocket<ConnData>, event: AgentDeckEvent): void {
+function send(ws: ServerWebSocket<ConnData>, event: Pocket AgentsEvent): void {
   ws.send(JSON.stringify(event));
 }
 

@@ -1,10 +1,10 @@
 {
-  "name": "@agentdeck/cli",
+  "name": "@pocket-agents/cli",
   "version": "0.1.0",
-  "description": "AgentDeck CLI — backend that bridges mobile to coding agents on this machine.",
+  "description": "Pocket Agents CLI — backend that bridges mobile to coding agents on this machine.",
   "type": "module",
   "bin": {
-    "agentdeck": "./dist/index.js"
+    "pocket-agents": "./dist/index.js"
   },
   "main": "./src/index.ts",
   "scripts": {
@@ -14,8 +14,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@agentdeck/adapters": "*",
-    "@agentdeck/protocol": "*",
+    "@pocket-agents/adapters": "*",
+    "@pocket-agents/protocol": "*",
     "cloudflared": "^0.7.1",
     "qrcode-terminal": "^0.12.0"
   },
