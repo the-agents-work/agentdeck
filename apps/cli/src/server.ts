@@ -11,6 +11,7 @@ import { PROTOCOL_VERSION } from "@pocket-agents/protocol";
 import { SessionStore } from "./store.ts";
 import { Runner } from "./runner.ts";
 import { ProjectStore } from "./projects.ts";
+import { scanFolders } from "./fsscan.ts";
 
 const STATIC_DIR = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -258,6 +259,17 @@ export function startServer(opts: {
               type: "projects.list",
               projects: projects.list(),
             });
+
+          case "fs.scan": {
+            // Synchronous scan — bounded by MAX_RESULTS in fsscan.ts so this
+            // shouldn't block more than a few ms. If a user has thousands of
+            // dotted dirs at home, we'd want to move to worker_threads, but
+            // for now keep it inline for simplicity.
+            return send(ws, {
+              type: "fs.scan",
+              folders: scanFolders(),
+            });
+          }
 
           case "session.resume": {
             const session = store.getSession(cmd.sessionId);

@@ -1269,6 +1269,16 @@
       .project-action.pinned {
         color: var(--accent);
       }
+      .git-dot {
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--accent);
+        margin-left: 6px;
+        vertical-align: middle;
+        opacity: 0.8;
+      }
       .section-label {
         font-size: 10.5px;
         font-weight: 700;
@@ -1666,6 +1676,7 @@
         const [pinAttemptsLeft, setPinAttemptsLeft] = useState(null);
         const [projects, setProjects] = useState([]);
         const [projectsError, setProjectsError] = useState(null);
+        const [discovered, setDiscovered] = useState([]);
         // The folder the agent will operate on for new chats. Persisted in
         // localStorage so the user keeps their context across page reloads.
         // null = no workspace connected → empty hero shows the Connect CTA.
@@ -1865,6 +1876,9 @@
               case "projects.error":
                 setProjectsError(evt.reason);
                 break;
+              case "fs.scan":
+                setDiscovered(evt.folders ?? []);
+                break;
             }
           }
 
@@ -1917,6 +1931,7 @@
         function createSession() {
           if (!activeWorkspace) {
             setPicker({ agent: selectedAgent, intent: "connect" });
+            send({ type: "fs.scan" });
             return;
           }
           pendingPromptRef.current = null;
@@ -1930,6 +1945,7 @@
           setSelectedAgent(agent);
           if (!activeWorkspace) {
             setPicker({ agent, prompt, intent: "connect" });
+            send({ type: "fs.scan" });
             return;
           }
           pendingPromptRef.current = prompt;
@@ -1948,6 +1964,10 @@
             agent: selectedAgent,
             intent: activeWorkspace ? "change" : "connect",
           });
+          // Refresh discovered folders every time the picker opens — fast
+          // enough (~50ms server-side) and folders/repos change as the user
+          // works on their laptop.
+          send({ type: "fs.scan" });
         }
         // Called by the modal when the user picks a folder. Both updates the
         // active workspace (so future "+ New chat" defaults to it) AND, if
@@ -2077,6 +2097,7 @@
             prompt=${picker.prompt}
             intent=${picker.intent}
             projects=${projects}
+            discovered=${discovered}
             activeWorkspace=${activeWorkspace}
             error=${projectsError}
             onPick=${(cwd) =>
@@ -2111,6 +2132,7 @@
         intent,
         activeWorkspace,
         projects,
+        discovered,
         error,
         onPick,
         onClose,
@@ -2148,6 +2170,18 @@
 
         const pinned = projects.filter((p) => p.pinned);
         const others = projects.filter((p) => !p.pinned);
+        // Hide discovered entries that the user already saved as a project
+        // so the same folder doesn't appear in two sections.
+        const savedPaths = new Set(projects.map((p) => p.path));
+        const suggestions = (discovered ?? []).filter(
+          (d) => !savedPaths.has(d.path),
+        );
+        // Group by parent for a "in ~/Documents/GitHub: A, B, C" layout.
+        const grouped = new Map();
+        for (const s of suggestions) {
+          if (!grouped.has(s.parent)) grouped.set(s.parent, []);
+          grouped.get(s.parent).push(s);
+        }
 
         return html`
           <div
@@ -2192,6 +2226,40 @@
                     onTogglePin=${() => onTogglePin(p.path)}
                     onRemove=${() => onRemoveProject(p.path)}
                   />`,
+                )}
+                ${grouped.size > 0 &&
+                Array.from(grouped.entries()).map(
+                  ([parent, items]) => html`
+                    <div class="section-label">Discovered · ${parent}</div>
+                    ${items.map(
+                      (d) => html`<div
+                        key=${d.path}
+                        class="project-row"
+                        onClick=${() => {
+                          // Save + immediately start. The user already
+                          // gestured towards this folder; no need for a
+                          // second confirmation.
+                          onAddProject(d.path, d.name);
+                          onPick(d.path);
+                        }}
+                        role="button"
+                      >
+                        <div class="project-icon">
+                          ${d.isGitRepo
+                            ? (d.name || "?").trim().slice(0, 1).toUpperCase()
+                            : "📁"}
+                        </div>
+                        <div class="project-meta">
+                          <div class="project-name">
+                            ${d.name}
+                            ${d.isGitRepo &&
+                            html`<span class="git-dot" title="git repo"></span>`}
+                          </div>
+                          <div class="project-path">${parent}/${d.name}</div>
+                        </div>
+                      </div>`,
+                    )}
+                  `,
                 )}
                 <div class="section-label">Default</div>
                 <div

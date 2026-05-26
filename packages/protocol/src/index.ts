@@ -78,6 +78,7 @@ export type PocketAgentsCommand =
   | { type: "projects.add"; path: string; name?: string; pinned?: boolean }
   | { type: "projects.remove"; path: string }
   | { type: "projects.toggle_pin"; path: string }
+  | { type: "fs.scan" }
   | { type: "ping" };
 
 // ----- Server → Client events -----
@@ -107,7 +108,18 @@ export type PocketAgentsEvent =
   | { type: "agent.error"; sessionId: string; error: string }
   | { type: "projects.list"; projects: Project[] }
   | { type: "projects.error"; reason: string }
+  | { type: "fs.scan"; folders: DiscoveredFolder[] }
   | { type: "pong"; t: number };
+
+/** A folder the server discovered on the laptop. Surfaced in the picker. */
+export type DiscoveredFolder = {
+  path: string;
+  name: string;
+  /** Parent dir for grouping, e.g. "~/Documents/GitHub". */
+  parent: string;
+  isGitRepo: boolean;
+  mtimeMs: number;
+};
 
 // ----- Pairing payload (encoded in QR) -----
 export type PairingPayload = {
