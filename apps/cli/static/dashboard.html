@@ -1478,16 +1478,13 @@
                 : ""}
             </div>
             <button
-              style="padding: 10px 20px; background: var(--accent); color: #0a0a0b; border-radius: 8px; font-weight: 600;"
+              data-primary
               onClick=${submit}
               disabled=${busy || val.trim().length < 4}
             >
-              ${busy ? "Verifying..." : "Unlock"}
+              ${busy ? "Verifying…" : "Unlock"}
             </button>
-            <button
-              style="color: var(--muted); margin-top: 8px;"
-              onClick=${onUnpair}
-            >
+            <button data-secondary onClick=${onUnpair}>
               Unpair instead
             </button>
           </div>
@@ -1617,24 +1614,34 @@
         session,
         wsState,
         wsError,
+        selectedAgent,
+        availableAgents,
+        onSelectAgent,
         onSend,
         onStop,
+        onStart,
         onOpenSidebar,
       }) {
         if (!chat) {
           return html`
             <header class="main-header">
-              <button class="menu-btn" onClick=${onOpenSidebar}>☰</button>
+              <button
+                class="menu-btn"
+                onClick=${onOpenSidebar}
+                aria-label="Open menu"
+              >
+                ☰
+              </button>
               <h2>AgentDeck</h2>
             </header>
-            <div class="empty-chat">
-              <h3>Pick a chat or start a new one</h3>
-              <p>
-                ${wsState === "open"
-                  ? "Connected to the laptop. Pick an agent in the sidebar."
-                  : `Status: ${wsState}${wsError ? " · " + wsError : ""}`}
-              </p>
-            </div>
+            <${EmptyHero}
+              selectedAgent=${selectedAgent}
+              availableAgents=${availableAgents}
+              onSelectAgent=${onSelectAgent}
+              onStart=${onStart}
+              wsState=${wsState}
+              wsError=${wsError}
+            />
           `;
         }
 
@@ -1642,7 +1649,13 @@
 
         return html`
           <header class="main-header">
-            <button class="menu-btn" onClick=${onOpenSidebar}>☰</button>
+            <button
+              class="menu-btn"
+              onClick=${onOpenSidebar}
+              aria-label="Open menu"
+            >
+              ☰
+            </button>
             <span class="agent-chip" data-agent=${currentAgent}>
               <span class="agent-glyph"></span>${agentLabel(currentAgent)}
             </span>
@@ -1663,6 +1676,108 @@
             disabled=${chat.status === "running"}
             onSend=${onSend}
           />
+        `;
+      }
+
+      /**
+       * Manus-style home: centered headline + composer + suggestion pills.
+       * Composer here doesn't talk to a session (none exists yet). On send,
+       * it calls onStart(agent, prompt) which (a) creates a fresh session,
+       * (b) queues the prompt so it auto-fires once `session.created`
+       * arrives. Pills do the same with pre-filled prompts.
+       */
+      function EmptyHero({
+        selectedAgent,
+        availableAgents,
+        onSelectAgent,
+        onStart,
+        wsState,
+        wsError,
+      }) {
+        const [val, setVal] = useState("");
+        const taRef = useRef(null);
+
+        function autoresize() {
+          const ta = taRef.current;
+          if (!ta) return;
+          ta.style.height = "auto";
+          ta.style.height = Math.min(180, ta.scrollHeight) + "px";
+        }
+        function submit() {
+          const text = val.trim();
+          if (!text) return;
+          onStart(selectedAgent, text);
+          setVal("");
+          requestAnimationFrame(autoresize);
+        }
+
+        const subtitle =
+          wsState === "open"
+            ? "Pick an agent and start a chat."
+            : `Connection: ${wsState}${wsError ? " · " + wsError : ""}`;
+
+        return html`
+          <div class="empty-hero">
+            <h1>What can I help you with?</h1>
+            <p class="hero-sub">${subtitle}</p>
+            <div class="hero-composer">
+              <textarea
+                ref=${taRef}
+                value=${val}
+                placeholder=${`Message ${agentLabel(selectedAgent)}…`}
+                rows="1"
+                onInput=${(e) => {
+                  setVal(e.target.value);
+                  autoresize();
+                }}
+                onKeyDown=${(e) => {
+                  if (e.key === "Enter" && !e.shiftKey) {
+                    e.preventDefault();
+                    submit();
+                  }
+                }}
+              />
+              <button
+                class="send-btn"
+                disabled=${!val.trim() || wsState !== "open"}
+                onClick=${submit}
+                aria-label="Send"
+              >
+                ↑
+              </button>
+            </div>
+            <div class="suggestions">
+              ${availableAgents.map(
+                (a) => html`
+                  <button
+                    key=${a}
+                    class="pill"
+                    data-agent=${a}
+                    onClick=${() => onSelectAgent(a)}
+                  >
+                    Switch to ${agentLabel(a)}
+                  </button>
+                `,
+              )}
+              <button
+                class="pill"
+                onClick=${() =>
+                  onStart(selectedAgent, "What can you do? Be concise.")}
+              >
+                What can you do?
+              </button>
+              <button
+                class="pill"
+                onClick=${() =>
+                  onStart(
+                    selectedAgent,
+                    "Summarize the most important file in this project in 5 bullets.",
+                  )}
+              >
+                Summarize this project
+              </button>
+            </div>
+          </div>
         `;
       }
 
