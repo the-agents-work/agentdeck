@@ -544,6 +544,176 @@
         text-align: center;
         overflow-y: auto;
       }
+      /* ============================================================
+         Workspace surfaces (card in hero, chip in header, row in sidebar)
+         ============================================================ */
+      .workspace-card {
+        width: 100%;
+        max-width: 440px;
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--radius-lg);
+        padding: 14px 16px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: background 0.12s ease, border-color 0.12s ease;
+      }
+      .workspace-card-connected {
+        cursor: pointer;
+      }
+      .workspace-card-connected:hover {
+        background: var(--bg-card-2);
+        border-color: var(--border-strong);
+      }
+      .workspace-card-empty {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: left;
+        gap: 10px;
+        padding: 18px;
+      }
+      .ws-card-title {
+        font-size: 14.5px;
+        font-weight: 600;
+        color: var(--text-main);
+      }
+      .ws-card-sub {
+        font-size: 13px;
+        line-height: 1.5;
+        color: var(--text-muted);
+      }
+      .ws-connect-btn {
+        align-self: flex-start;
+        padding: 10px 16px;
+        background: var(--accent);
+        color: #0a0a0b;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 13.5px;
+        margin-top: 4px;
+        transition: filter 0.12s ease;
+      }
+      .ws-connect-btn:hover {
+        filter: brightness(1.08);
+      }
+      .ws-icon {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+        background: var(--bg-card-2);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 18px;
+        flex-shrink: 0;
+      }
+      .ws-icon-empty {
+        color: var(--text-faint);
+        font-size: 20px;
+        font-weight: 300;
+      }
+      .ws-meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .ws-name {
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text-main);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ws-name-empty {
+        color: var(--text-muted);
+        font-weight: 500;
+      }
+      .ws-path {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .ws-action {
+        font-size: 12px;
+        color: var(--text-muted);
+        font-weight: 500;
+        padding: 4px 10px;
+        border-radius: 6px;
+        flex-shrink: 0;
+      }
+      .workspace-card-connected:hover .ws-action {
+        color: var(--accent);
+        background: var(--accent-soft);
+      }
+
+      /* Sidebar workspace row (compact) */
+      .workspace-row {
+        margin: 0 12px 4px;
+        padding: 10px 12px;
+        border-radius: 10px;
+        background: var(--bg-card);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        transition: background 0.12s ease;
+      }
+      .workspace-row:hover {
+        background: var(--bg-card-hover);
+      }
+      .workspace-row .ws-icon {
+        width: 28px;
+        height: 28px;
+        font-size: 14px;
+        border-radius: 8px;
+      }
+
+      /* Header workspace chip (subtle, click → picker) */
+      .ws-chip {
+        font-size: 12px;
+        font-weight: 600;
+        padding: 5px 10px;
+        border-radius: 999px;
+        background: var(--bg-card);
+        color: var(--text-muted);
+        border: 1px solid var(--border-soft);
+        max-width: 140px;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-shrink: 0;
+        transition: background 0.12s ease, color 0.12s ease;
+      }
+      .ws-chip:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-main);
+      }
+
+      /* Context pill above composer in active chat */
+      .context-pill-row {
+        padding: 4px 14px 0;
+        display: flex;
+        justify-content: center;
+      }
+      .context-pill {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        padding: 3px 10px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.03);
+      }
+
+      .hero-composer.disabled {
+        opacity: 0.5;
+      }
+
       .empty-hero h1 {
         margin: 0;
         font-size: 28px;
@@ -1328,6 +1498,56 @@
       }
       const PROTOCOL_VERSION = 1;
       const TOKEN_KEY = "pocket-agents:token:v1";
+      const ACTIVE_WORKSPACE_KEY = "pocket-agents:active-workspace:v1";
+
+      /**
+       * Active workspace = which local folder Claude / Codex will operate on
+       * for the NEXT new chat. This is intentionally a top-level concept in
+       * the UI (not a settings tweak) — the agent without a workspace is
+       * useless for code work.
+       *
+       * Persisted as a `{ name, path }` shape (not the full Project object)
+       * so a stale localStorage value can still be displayed if the server's
+       * projects.json has been edited or wiped — we just lose the pinned/
+       * addedAt metadata, which is fine.
+       */
+      function loadActiveWorkspace() {
+        try {
+          const raw = localStorage.getItem(ACTIVE_WORKSPACE_KEY);
+          if (!raw) return null;
+          const parsed = JSON.parse(raw);
+          if (!parsed?.path) return null;
+          return { name: parsed.name || basenameOf(parsed.path), path: parsed.path };
+        } catch {
+          return null;
+        }
+      }
+      function saveActiveWorkspace(ws) {
+        if (!ws) localStorage.removeItem(ACTIVE_WORKSPACE_KEY);
+        else
+          localStorage.setItem(
+            ACTIVE_WORKSPACE_KEY,
+            JSON.stringify({ name: ws.name, path: ws.path }),
+          );
+      }
+      function basenameOf(p) {
+        if (!p) return "";
+        // Bare home dir → "Home" so the workspace label stays stable whether
+        // the user picked "Home" (cwd: "") or has an existing chat whose
+        // DB-stored cwd is the resolved /Users/<them> path.
+        if (/^\/Users\/[^/]+\/?$/.test(p) || /^\/home\/[^/]+\/?$/.test(p)) {
+          return "Home";
+        }
+        const parts = String(p).split("/").filter(Boolean);
+        return parts[parts.length - 1] ?? p;
+      }
+      function shortenPath(p) {
+        if (!p) return "";
+        // Collapse /Users/<me> to ~ so common paths read shorter on mobile.
+        const m = String(p).match(/^\/Users\/[^/]+/);
+        if (m) return "~" + p.slice(m[0].length);
+        return p;
+      }
 
       /* ──────────── Token & WS handling ──────────── */
 
@@ -1446,10 +1666,23 @@
         const [pinAttemptsLeft, setPinAttemptsLeft] = useState(null);
         const [projects, setProjects] = useState([]);
         const [projectsError, setProjectsError] = useState(null);
+        // The folder the agent will operate on for new chats. Persisted in
+        // localStorage so the user keeps their context across page reloads.
+        // null = no workspace connected → empty hero shows the Connect CTA.
+        const [activeWorkspace, setActiveWorkspaceState] = useState(
+          loadActiveWorkspace(),
+        );
+        function setActiveWorkspace(ws) {
+          setActiveWorkspaceState(ws);
+          saveActiveWorkspace(ws);
+        }
         // Picker holds an in-flight intent: when set, the modal is open and
         // whatever folder the user picks gets paired with .prompt (if any)
         // before firing session.create.
-        const [picker, setPicker] = useState(null); // null | { agent, prompt? }
+        // intent: 'connect' | 'change' | 'start' — purely informational for
+        // the modal title; the resulting action is the same (set workspace +
+        // optionally start a chat).
+        const [picker, setPicker] = useState(null); // null | { agent, prompt?, intent? }
 
         const wsRef = useRef(null);
 
@@ -1678,19 +1911,67 @@
         // can "type-then-send" without the two-step (create → then type) UX.
         const pendingPromptRef = useRef(null);
 
-        // Open the project picker. The picker calls actuallyStartNew() with
-        // the chosen cwd. We thread the prompt through `picker.prompt` so
-        // hero composer + suggestion pills both flow through the same path.
+        // Start a fresh chat in the currently-active workspace. If no
+        // workspace is connected, fall through to the picker so the user
+        // can choose one as part of the same gesture.
         function createSession() {
-          setPicker({ agent: selectedAgent });
+          if (!activeWorkspace) {
+            setPicker({ agent: selectedAgent, intent: "connect" });
+            return;
+          }
+          pendingPromptRef.current = null;
+          send({
+            type: "session.create",
+            agent: selectedAgent,
+            cwd: activeWorkspace.path,
+          });
         }
         function startNewWithPrompt(agent, prompt) {
           setSelectedAgent(agent);
-          setPicker({ agent, prompt });
+          if (!activeWorkspace) {
+            setPicker({ agent, prompt, intent: "connect" });
+            return;
+          }
+          pendingPromptRef.current = prompt;
+          send({
+            type: "session.create",
+            agent,
+            cwd: activeWorkspace.path,
+          });
         }
-        function actuallyStartNew({ agent, prompt, cwd }) {
-          pendingPromptRef.current = prompt ?? null;
-          send({ type: "session.create", agent, cwd });
+        // Open the picker explicitly (header chip, sidebar "Connect folder",
+        // workspace card "Change" button). Does NOT auto-start a chat.
+        // Intent affects modal copy: "Connect a folder" first time vs
+        // "Switch workspace" when there's already one connected.
+        function openWorkspacePicker() {
+          setPicker({
+            agent: selectedAgent,
+            intent: activeWorkspace ? "change" : "connect",
+          });
+        }
+        // Called by the modal when the user picks a folder. Both updates the
+        // active workspace (so future "+ New chat" defaults to it) AND, if
+        // there's a pending prompt or the user clicked through "start a chat",
+        // immediately spawns the session.
+        function actuallyStartNew({ agent, prompt, cwd, startChat }) {
+          // cwd === "" is the "Home" sentinel from the picker — server
+          // resolves it to the actual homedir. We store an explicit Home
+          // marker so the workspace stays labeled "Home" before any chat
+          // exists to read its resolved cwd back.
+          let ws;
+          if (!cwd) {
+            ws = { name: "Home", path: "" };
+          } else {
+            const matched = projects.find((p) => p.path === cwd);
+            ws = matched
+              ? { name: matched.name, path: matched.path }
+              : { name: basenameOf(cwd) || cwd, path: cwd };
+          }
+          setActiveWorkspace(ws);
+          if (startChat !== false) {
+            pendingPromptRef.current = prompt ?? null;
+            send({ type: "session.create", agent, cwd });
+          }
           setPicker(null);
         }
         function openSession(id) {
@@ -1698,6 +1979,20 @@
           setChat({ sessionId: id, messages: [], status: "idle" });
           send({ type: "session.resume", sessionId: id });
           setSidebarOpen(false);
+          // Switching to a chat ALSO updates the active workspace so that
+          // when the user then clicks "+ New chat" the new one goes into
+          // the same folder they were just looking at. Without this the
+          // active workspace would silently drift from the chat the user
+          // sees on screen.
+          const session = sessions.find((s) => s.id === id);
+          if (session?.cwd) {
+            const matched = projects.find((p) => p.path === session.cwd);
+            setActiveWorkspace(
+              matched
+                ? { name: matched.name, path: matched.path }
+                : { name: basenameOf(session.cwd), path: session.cwd },
+            );
+          }
         }
         function sendPrompt(text) {
           if (!chat) return;
@@ -1744,10 +2039,12 @@
             availableAgents=${availableAgents}
             selectedAgent=${selectedAgent}
             wsState=${wsState}
+            activeWorkspace=${activeWorkspace}
             onCreate=${createSession}
             onSelectAgent=${setSelectedAgent}
             onOpen=${openSession}
             onUnpair=${unpair}
+            onChangeWorkspace=${openWorkspacePicker}
             open=${sidebarOpen}
             onClose=${() => setSidebarOpen(false)}
           />
@@ -1756,6 +2053,7 @@
               chat=${chat}
               session=${sessions.find((s) => s.id === activeId)}
               projects=${projects}
+              activeWorkspace=${activeWorkspace}
               wsState=${wsState}
               wsError=${wsError}
               selectedAgent=${selectedAgent}
@@ -1764,6 +2062,7 @@
               onSend=${sendPrompt}
               onStop=${stopChat}
               onStart=${startNewWithPrompt}
+              onChangeWorkspace=${openWorkspacePicker}
               onOpenSidebar=${() => setSidebarOpen(true)}
             />
           </main>
@@ -1776,13 +2075,18 @@
           html`<${ProjectPicker}
             agent=${picker.agent}
             prompt=${picker.prompt}
+            intent=${picker.intent}
             projects=${projects}
+            activeWorkspace=${activeWorkspace}
             error=${projectsError}
             onPick=${(cwd) =>
               actuallyStartNew({
                 agent: picker.agent,
                 prompt: picker.prompt,
                 cwd,
+                // "change" intent doesn't auto-start a chat — user is just
+                // re-targeting their workspace. Other intents start one.
+                startChat: picker.intent !== "change",
               })}
             onClose=${() => setPicker(null)}
             onAddProject=${(path, name) =>
@@ -1804,6 +2108,8 @@
       function ProjectPicker({
         agent,
         prompt,
+        intent,
+        activeWorkspace,
         projects,
         error,
         onPick,
@@ -1812,6 +2118,12 @@
         onRemoveProject,
         onTogglePin,
       }) {
+        const titleText =
+          intent === "change"
+            ? "Switch workspace"
+            : intent === "connect"
+              ? "Connect a folder"
+              : `Where should ${agentLabel(agent)} work?`;
         const [customPath, setCustomPath] = useState("");
         const inputRef = useRef(null);
 
@@ -1846,10 +2158,16 @@
           >
             <div class="modal" role="dialog" aria-label="Pick a project">
               <div class="modal-grabber"></div>
-              <h3>Where should ${agentLabel(agent)} work?</h3>
+              <h3>${titleText}</h3>
               ${prompt &&
               html`<div class="modal-sub">
                 Will send: <em>${prompt.length > 80 ? prompt.slice(0, 80) + "…" : prompt}</em>
+              </div>`}
+              ${activeWorkspace &&
+              !prompt &&
+              intent === "change" &&
+              html`<div class="modal-sub">
+                Currently: <em>${activeWorkspace.name}</em>
               </div>`}
               ${error && html`<div class="modal-error">${error}</div>`}
               <div class="modal-list">
@@ -2060,10 +2378,12 @@
         availableAgents,
         selectedAgent,
         wsState,
+        activeWorkspace,
         onCreate,
         onSelectAgent,
         onOpen,
         onUnpair,
+        onChangeWorkspace,
         open,
         onClose,
       }) {
@@ -2079,6 +2399,23 @@
               >
                 ✕
               </button>
+            </div>
+            <div class="section-label" style="padding: 14px 18px 4px;">Workspace</div>
+            <div class="workspace-row" onClick=${onChangeWorkspace}>
+              ${activeWorkspace
+                ? html`<div class="ws-icon">📁</div>
+                    <div class="ws-meta">
+                      <div class="ws-name">${activeWorkspace.name}</div>
+                      <div class="ws-path">
+                        ${shortenPath(activeWorkspace.path)}
+                      </div>
+                    </div>
+                    <span class="ws-action">Change</span>`
+                : html`<div class="ws-icon ws-icon-empty">+</div>
+                    <div class="ws-meta">
+                      <div class="ws-name ws-name-empty">No workspace</div>
+                      <div class="ws-path">Tap to connect a folder</div>
+                    </div>`}
             </div>
             <div class="agent-picker" role="tablist" aria-label="Agent">
               ${availableAgents.map(
@@ -2149,6 +2486,7 @@
         chat,
         session,
         projects,
+        activeWorkspace,
         wsState,
         wsError,
         selectedAgent,
@@ -2157,6 +2495,7 @@
         onSend,
         onStop,
         onStart,
+        onChangeWorkspace,
         onOpenSidebar,
       }) {
         if (!chat) {
@@ -2169,13 +2508,29 @@
               >
                 ☰
               </button>
-              <h2>Pocket Agents</h2>
+              <div class="header-title">
+                <h2>Pocket Agents</h2>
+                ${activeWorkspace &&
+                html`<span class="header-meta">
+                  Working in ${activeWorkspace.name}
+                </span>`}
+              </div>
+              ${activeWorkspace &&
+              html`<button
+                class="ws-chip"
+                onClick=${onChangeWorkspace}
+                title="Change workspace"
+              >
+                📁 ${activeWorkspace.name}
+              </button>`}
             </header>
             <${EmptyHero}
               selectedAgent=${selectedAgent}
               availableAgents=${availableAgents}
+              activeWorkspace=${activeWorkspace}
               onSelectAgent=${onSelectAgent}
               onStart=${onStart}
+              onChangeWorkspace=${onChangeWorkspace}
               wsState=${wsState}
               wsError=${wsError}
             />
@@ -2218,8 +2573,16 @@
             <span>${agentLabel(currentAgent)} is working...</span>
             <button class="stop-btn" onClick=${onStop}>Stop</button>
           </div>`}
+          ${session?.cwd &&
+          html`<div class="context-pill-row">
+            <span class="context-pill">
+              📁 ${projectLabelFor(session, projects) ?? basenameOf(session.cwd)} ·
+              ${agentLabel(currentAgent)}
+            </span>
+          </div>`}
           <${InputBar}
             agent=${currentAgent}
+            workspaceName=${projectLabelFor(session, projects)}
             disabled=${chat.status === "running"}
             onSend=${onSend}
           />
@@ -2236,13 +2599,16 @@
       function EmptyHero({
         selectedAgent,
         availableAgents,
+        activeWorkspace,
         onSelectAgent,
         onStart,
+        onChangeWorkspace,
         wsState,
         wsError,
       }) {
         const [val, setVal] = useState("");
         const taRef = useRef(null);
+        const connected = !!activeWorkspace;
 
         function autoresize() {
           const ta = taRef.current;
@@ -2259,15 +2625,52 @@
         }
 
         const subtitle =
-          wsState === "open"
-            ? "Pick an agent and start a chat."
-            : `Connection: ${wsState}${wsError ? " · " + wsError : ""}`;
+          wsState !== "open"
+            ? `Connection: ${wsState}${wsError ? " · " + wsError : ""}`
+            : connected
+              ? `Working in ${activeWorkspace.name}`
+              : "Connect a folder to give your agent a workspace.";
+
+        const composerPlaceholder = !connected
+          ? "Connect a folder to start…"
+          : `Ask ${agentLabel(selectedAgent)} about ${activeWorkspace.name}…`;
 
         return html`
           <div class="empty-hero">
             <h1>What can I help you with?</h1>
             <p class="hero-sub">${subtitle}</p>
-            <div class="hero-composer">
+
+            ${connected
+              ? html`<div
+                  class="workspace-card workspace-card-connected"
+                  onClick=${onChangeWorkspace}
+                  role="button"
+                  title="Change workspace"
+                >
+                  <div class="ws-icon">📁</div>
+                  <div class="ws-meta">
+                    <div class="ws-name">${activeWorkspace.name}</div>
+                    <div class="ws-path">
+                      ${shortenPath(activeWorkspace.path)}
+                    </div>
+                  </div>
+                  <span class="ws-action">Change</span>
+                </div>`
+              : html`<div class="workspace-card workspace-card-empty">
+                  <div class="ws-card-title">No workspace connected</div>
+                  <div class="ws-card-sub">
+                    Connect a local folder so ${agentLabel(selectedAgent)} can read
+                    files, edit code, and run commands in the right project.
+                  </div>
+                  <button
+                    class="ws-connect-btn"
+                    onClick=${onChangeWorkspace}
+                  >
+                    Connect folder
+                  </button>
+                </div>`}
+
+            <div class=${"hero-composer" + (!connected ? " disabled" : "")}>
               <button
                 class="input-action"
                 disabled
@@ -2279,7 +2682,8 @@
               <textarea
                 ref=${taRef}
                 value=${val}
-                placeholder=${`Ask ${agentLabel(selectedAgent)} anything…`}
+                placeholder=${composerPlaceholder}
+                disabled=${!connected || wsState !== "open"}
                 rows="1"
                 onInput=${(e) => {
                   setVal(e.target.value);
@@ -2294,14 +2698,16 @@
               />
               <button
                 class="send-btn"
-                disabled=${!val.trim() || wsState !== "open"}
+                disabled=${!val.trim() || !connected || wsState !== "open"}
                 onClick=${submit}
                 aria-label="Send"
               >
                 ↑
               </button>
             </div>
-            <div class="suggestions">
+
+            ${connected &&
+            html`<div class="suggestions">
               ${availableAgents.map(
                 (a) => html`
                   <button
@@ -2317,21 +2723,14 @@
               <button
                 class="pill"
                 onClick=${() =>
-                  onStart(selectedAgent, "What can you do? Be concise.")}
-              >
-                What can you do?
-              </button>
-              <button
-                class="pill"
-                onClick=${() =>
                   onStart(
                     selectedAgent,
-                    "Summarize the most important file in this project in 5 bullets.",
+                    `What is this project about? Look at the README and top-level files in ${activeWorkspace.name} and summarize in 5 bullets.`,
                   )}
               >
                 Summarize this project
               </button>
-            </div>
+            </div>`}
           </div>
         `;
       }
@@ -2469,7 +2868,7 @@
         </div>`;
       }
 
-      function InputBar({ agent, disabled, onSend }) {
+      function InputBar({ agent, workspaceName, disabled, onSend }) {
         const [val, setVal] = useState("");
         const taRef = useRef(null);
 
@@ -2505,7 +2904,9 @@
                 disabled=${disabled}
                 placeholder=${disabled
                   ? "Wait for current run…"
-                  : `Ask ${agentLabel(agent)} anything…`}
+                  : workspaceName
+                    ? `Ask ${agentLabel(agent)} about ${workspaceName}…`
+                    : `Ask ${agentLabel(agent)} anything…`}
                 onInput=${(e) => {
                   setVal(e.target.value);
                   autoresize();
