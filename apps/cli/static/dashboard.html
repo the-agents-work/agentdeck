@@ -565,10 +565,10 @@
         background: var(--bg-card);
         border: 1px solid var(--border-soft);
         border-radius: 22px;
-        padding: 12px 12px 12px 18px;
+        padding: 8px 10px;
         display: flex;
         align-items: flex-end;
-        gap: 8px;
+        gap: 6px;
         transition:
           border-color 0.15s ease,
           background 0.15s ease;
@@ -1807,10 +1807,18 @@
             <h1>What can I help you with?</h1>
             <p class="hero-sub">${subtitle}</p>
             <div class="hero-composer">
+              <button
+                class="input-action"
+                disabled
+                aria-label="Attach (coming soon)"
+                title="Attachments — coming soon"
+              >
+                +
+              </button>
               <textarea
                 ref=${taRef}
                 value=${val}
-                placeholder=${`Message ${agentLabel(selectedAgent)}…`}
+                placeholder=${`Ask ${agentLabel(selectedAgent)} anything…`}
                 rows="1"
                 onInput=${(e) => {
                   setVal(e.target.value);
