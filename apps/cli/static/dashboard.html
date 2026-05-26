@@ -141,8 +141,27 @@
 import { h, render } from 'https://esm.sh/preact@10.27.0';
 import { useState, useEffect, useRef, useMemo } from 'https://esm.sh/preact@10.27.0/hooks';
 import htm from 'https://esm.sh/htm@3.1.1';
+import { marked } from 'https://esm.sh/marked@14.1.4';
+import DOMPurify from 'https://esm.sh/dompurify@3.2.4';
 
 const html = htm.bind(h);
+
+// Configure marked: GFM (tables, fenced code), line breaks → <br>, no auto-link
+// of bare URLs (Claude often includes URLs in prose; we don't need every URL
+// becoming a target=_blank surface).
+marked.setOptions({ gfm: true, breaks: true });
+
+// Render markdown → sanitized HTML. We feed the result to dangerouslySetInnerHTML.
+// DOMPurify strips <script>, on* handlers, javascript: URLs, etc., so even a
+// pathological Claude response can't xss the dashboard.
+function renderMarkdown(text) {
+  if (typeof text !== 'string' || text.length === 0) return '';
+  const raw = marked.parse(text);
+  return DOMPurify.sanitize(raw, {
+    USE_PROFILES: { html: true },
+    ADD_ATTR: ['target', 'rel'],
+  });
+}
 const PROTOCOL_VERSION = 1;
 const TOKEN_KEY = 'agentdeck:token:v1';
 
