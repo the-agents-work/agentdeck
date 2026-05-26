@@ -29,3 +29,7 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 .idea/
+apps/cli/dist/
+apps/cli/README.md
+apps/cli/LICENSE
+apps/cli/*.tgz

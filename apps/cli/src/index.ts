@@ -1,4 +1,7 @@
-#!/usr/bin/env bun
+// Shebang is added at build time via `bun build --banner` so the bundled
+// dist/index.js works as a CLI binary. We omit it from the TS source so
+// development runs (`bun src/index.ts`) don't trip on a stale duplicate
+// shebang after re-bundling.
 import { randomInt } from "node:crypto";
 import qrcode from "qrcode-terminal";
 import { startServer } from "./server.ts";

@@ -22,21 +22,36 @@
 ## Quick start
 
 ```bash
-git clone https://github.com/the-agents-work/pocket-agents
-cd pocket-agents
-npm install
-bun apps/cli/src/index.ts
+# 1. Install Bun once (one-liner, no admin)
+curl -fsSL https://bun.sh/install | bash
+
+# 2. Run Pocket Agents (downloads + runs in one command)
+bunx pocket-agents@latest
 ```
 
 On first run, Pocket Agents:
 
 1. Downloads `cloudflared` (~8MB, once) and starts a free Cloudflare quick tunnel.
+   **No Cloudflare account needed** — anonymous quick tunnels work out of the box.
 2. Prints a **tokenized dashboard URL** like `https://xxx-yyy-zzz.trycloudflare.com/?t=ABCD...`
 3. Also prints a **QR code** of that URL.
 
 **Open the URL on your phone** (paste, or scan the QR with your phone camera). The page strips the token from the URL and stores it in `localStorage` — subsequent visits stay paired, no token in browser history.
 
-That's the whole flow. No native app, no Expo, no signup.
+That's the whole flow. No native app, no Cloudflare signup, no API keys.
+
+### Why Bun and not Node?
+
+Pocket Agents uses `bun:sqlite` for the session store, so the runtime is Bun. If you only have Node, install Bun first (1-line installer above — it doesn't conflict with Node).
+
+### From source (development)
+
+```bash
+git clone https://github.com/the-agents-work/pocket-agents
+cd pocket-agents
+npm install
+bun apps/cli/src/index.ts
+```
 
 ### CLI flags
 
