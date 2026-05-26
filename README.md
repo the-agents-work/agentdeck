@@ -40,13 +40,36 @@ That's the whole flow. No native app, no Expo, no signup.
 
 ### CLI flags
 
-| Flag             | Effect                                                                         |
-| ---------------- | ------------------------------------------------------------------------------ |
-| `--no-tunnel`    | LAN-only mode. URL uses your laptop's LAN IP. Phone must be on the same Wi-Fi. |
-| `--rotate-token` | Invalidates the current dashboard URL. All paired devices lose access.         |
-| `--help`         | Show help.                                                                     |
+| Flag                  | Effect                                                                         |
+| --------------------- | ------------------------------------------------------------------------------ |
+| `--no-tunnel`         | LAN-only mode. URL uses your laptop's LAN IP. Phone must be on the same Wi-Fi. |
+| `--rotate-token`      | Invalidates the current dashboard URL. All paired devices lose access.         |
+| `--gen-pin`           | Generate a random 6-digit PIN, save it, print it once.                         |
+| `--set-pin <4-10>`    | Save a PIN of your choosing.                                                   |
+| `--clear-pin`         | Remove the saved PIN (PIN gate off).                                           |
+| `--help`              | Show help.                                                                     |
 
-Env: `AGENTDECK_PORT` (default `3737`), `AGENTDECK_HOME` (default `~/.agentdeck`).
+Env: `AGENTDECK_PORT` (default `3737`), `AGENTDECK_HOME` (default `~/.agentdeck`), `AGENTDECK_PIN` (overrides the `pin` file).
+
+### Adding a PIN (recommended)
+
+The pairing token alone is enough for most use, but if the dashboard URL might end up in a screenshot or chat log, add a second factor:
+
+```bash
+agentdeck --gen-pin           # ~/.agentdeck/pin gets a random 6-digit code
+# OR
+agentdeck --set-pin 408215    # pick your own
+```
+
+Restart `agentdeck`; the dashboard will now prompt for the PIN after pairing. Five wrong attempts drops the socket. `--clear-pin` removes it.
+
+## Slash commands
+
+Claude Code's interactive slash commands (`/help`, `/clear`, `/init`, `/goal`, `/loop`, `/security-review`, `/agents`, …) are **TUI-only features of the Claude Code CLI** — they aren't available through the Claude Agent SDK that AgentDeck uses. Asking the model `/goal foo` over the SDK gets you a literal `"/goal isn't available in this environment."` reply.
+
+AgentDeck detects slash-prefixed input and shows a hint instead of round-tripping to the model. If you want the equivalent of `/goal`, type the request as plain English ("keep working until X happens, don't stop early") and Claude will follow.
+
+Hooks you've configured in `~/.claude/settings.json` still fire as normal — AgentDeck surfaces a small `⚡ hook · started` chip in the chat when one runs.
 
 ## How auth works
 
