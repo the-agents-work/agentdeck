@@ -138,13 +138,34 @@ function normalize(sdkMsg: unknown): AgentMessage[] {
     result?: string;
   };
 
-  if (m.type === "system") return [];
   if (m.type === "result") return [];
   // SDK 0.3+ emits these as a heartbeat for rate limit windows. Useful for
   // power-user UIs that want to draw a quota bar; useless noise in our chat
   // timeline. Drop until we have a place to render them.
   if (m.type === "rate_limit_event") return [];
   if (m.type === "stream_event") return [];
+
+  if (m.type === "system") {
+    // System events the dashboard CAN surface as small inline notices:
+    //   - hook_started   (a configured hook is about to run)
+    //   - hook_response  (the hook finished)
+    // Everything else (init, model metadata, MCP readiness, …) is noise.
+    const subtype = m.subtype ?? "";
+    if (subtype === "hook_started" || subtype === "hook_response") {
+      const hookName =
+        (m as { hook_name?: string }).hook_name ??
+        (m as { name?: string }).name ??
+        "hook";
+      return [
+        {
+          type: "hook",
+          raw: sdkMsg,
+          text: `${hookName} · ${subtype === "hook_started" ? "started" : "done"}`,
+        },
+      ];
+    }
+    return [];
+  }
 
   if (m.type === "assistant" || m.type === "user") {
     const out: AgentMessage[] = [];

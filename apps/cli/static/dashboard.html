@@ -852,6 +852,23 @@
         border-radius: 999px;
         background: var(--bg-card);
       }
+      .hook-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 10.5px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        padding: 3px 9px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.04);
+        color: var(--text-faint);
+      }
+      .hook-chip::before {
+        content: "⚡";
+        font-size: 11px;
+      }
 
       /* ============================================================
          Composer (bottom)
@@ -1457,7 +1474,34 @@
           setSidebarOpen(false);
         }
         function sendPrompt(text) {
-          if (chat) send({ type: "prompt", sessionId: chat.sessionId, text });
+          if (!chat) return;
+          // Claude Code CLI's interactive slash commands (/help, /clear,
+          // /goal, /init, /loop, /security-review, …) are TUI features —
+          // the SDK passes the prompt straight to the model, which then
+          // replies "isn't available in this environment". Catch them here
+          // so the user sees a helpful hint instead of a confusing answer
+          // and we don't bill a round-trip.
+          if (/^\s*\/[a-z][a-z0-9-]*/i.test(text)) {
+            setChat((prev) =>
+              prev && prev.sessionId === chat.sessionId
+                ? {
+                    ...prev,
+                    messages: [
+                      ...prev.messages,
+                      { type: "user", raw: { role: "user" }, text },
+                      {
+                        type: "system",
+                        raw: {},
+                        text:
+                          "Slash commands like /goal and /init are Claude Code TUI features and don't work through AgentDeck. Type the request in plain words instead.",
+                      },
+                    ],
+                  }
+                : prev,
+            );
+            return;
+          }
+          send({ type: "prompt", sessionId: chat.sessionId, text });
         }
         function stopChat() {
           if (chat) send({ type: "session.stop", sessionId: chat.sessionId });
@@ -1955,6 +1999,14 @@
                 <pre>${typeof out === "string" ? out : prettyJson(out)}</pre>
               </div>
             </div>
+          </div>`;
+        }
+        if (msg.type === "hook") {
+          // Surface user-configured Claude Code hooks (pre/post tool use,
+          // session, etc.). Subtle chip so power users see their hook setup
+          // firing, but doesn't dominate the chat.
+          return html`<div class="msg-row system">
+            <span class="hook-chip">${msg.text ?? "hook"}</span>
           </div>`;
         }
         if (msg.type === "result" || msg.type === "system") {

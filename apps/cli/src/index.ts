@@ -1,4 +1,5 @@
 #!/usr/bin/env bun
+import { randomInt } from "node:crypto";
 import qrcode from "qrcode-terminal";
 import { startServer } from "./server.ts";
 import { startTunnel } from "./tunnel.ts";
@@ -10,6 +11,17 @@ import {
   rotateToken,
   savePin,
 } from "./pair.ts";
+
+/**
+ * Generate a cryptographically-random 6-digit PIN. We use randomInt() from
+ * node:crypto (CSPRNG-backed) rather than Math.random() which is predictable.
+ * 6 digits = 10^6 = 1M possibilities; combined with the 5-attempt server lockout
+ * that's ~200k expected guesses to break — orders of magnitude beyond what
+ * a casual leak-then-poke attack would attempt.
+ */
+function generateRandomPin(): string {
+  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+}
 
 const VERSION = "0.1.0";
 
@@ -38,6 +50,20 @@ if (args.has("--clear-pin")) {
   console.log("PIN cleared. Dashboard no longer requires a PIN.");
   process.exit(0);
 }
+if (args.has("--gen-pin")) {
+  const newPin = generateRandomPin();
+  savePin(newPin);
+  console.log("");
+  console.log("───── New random PIN ─────");
+  console.log("");
+  console.log(`  ${newPin}`);
+  console.log("");
+  console.log("──────────────────────────");
+  console.log("");
+  console.log("Saved to ~/.agentdeck/pin (mode 0600).");
+  console.log("Remember this PIN — it won't be printed again unless you rotate.");
+  process.exit(0);
+}
 
 if (SHOW_HELP) {
   console.log(`AgentDeck CLI v${VERSION}
@@ -46,7 +72,8 @@ Usage:
   agentdeck                       Start server + Cloudflare tunnel, print dashboard URL
   agentdeck --no-tunnel           LAN-only mode (use laptop's LAN IP, no tunnel)
   agentdeck --rotate-token        Generate a fresh pairing token (invalidates old links)
-  agentdeck --set-pin <4-10>      Save a PIN. Dashboard prompts for it after pairing.
+  agentdeck --gen-pin             Generate a random 6-digit PIN and print it once.
+  agentdeck --set-pin <4-10>      Save a PIN you choose. Dashboard prompts after pairing.
   agentdeck --clear-pin           Remove the saved PIN.
   agentdeck --help                Show this
 
@@ -68,7 +95,9 @@ const pin = loadPin();
 console.log(`AgentDeck v${VERSION}`);
 console.log(`Server name: ${serverName}`);
 console.log(`Config dir:  ${process.env.AGENTDECK_HOME ?? "~/.agentdeck"}`);
-console.log(`PIN gate:    ${pin ? "ENABLED (dashboard will prompt)" : "off (use --set-pin <pin> to enable)"}`);
+console.log(
+  `PIN gate:    ${pin ? "ENABLED (dashboard will prompt)" : "off (use --gen-pin or --set-pin to enable)"}`,
+);
 console.log("");
 
 const server = startServer({ port: PORT, token, pin, version: VERSION });
