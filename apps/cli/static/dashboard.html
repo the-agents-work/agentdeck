@@ -969,6 +969,196 @@
       }
 
       /* ============================================================
+         Project picker modal (opens before session.create)
+         ============================================================ */
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.65);
+        z-index: 50;
+        display: flex;
+        align-items: flex-end;
+        animation: fade-in 0.18s ease;
+      }
+      .modal {
+        width: 100%;
+        max-height: 86%;
+        background: var(--bg-sidebar);
+        border-top-left-radius: 20px;
+        border-top-right-radius: 20px;
+        padding: 18px 16px;
+        padding-bottom: max(18px, env(safe-area-inset-bottom));
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        animation: slide-up 0.22s cubic-bezier(0.32, 0.72, 0.3, 1);
+      }
+      @keyframes slide-up {
+        from { transform: translateY(20px); opacity: 0; }
+        to { transform: translateY(0); opacity: 1; }
+      }
+      .modal-grabber {
+        width: 38px;
+        height: 4px;
+        border-radius: 999px;
+        background: var(--text-faint);
+        margin: -6px auto 4px;
+        opacity: 0.5;
+      }
+      .modal h3 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+        letter-spacing: -0.01em;
+      }
+      .modal-sub {
+        color: var(--text-muted);
+        font-size: 13px;
+        margin: -8px 0 4px;
+      }
+      .modal-list {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        margin: 0 -16px;
+        padding: 0 16px;
+        display: flex;
+        flex-direction: column;
+        gap: 2px;
+      }
+      .project-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 11px 12px;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: background 0.12s ease;
+      }
+      .project-row:hover {
+        background: var(--bg-card);
+      }
+      .project-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 9px;
+        background: var(--bg-card);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 15px;
+        flex-shrink: 0;
+      }
+      .project-meta {
+        flex: 1;
+        min-width: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 1px;
+      }
+      .project-name {
+        font-size: 14px;
+        font-weight: 500;
+        color: var(--text-main);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .project-path {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      .project-actions {
+        display: inline-flex;
+        gap: 4px;
+        opacity: 0;
+        transition: opacity 0.12s ease;
+      }
+      .project-row:hover .project-actions,
+      .project-row:focus-within .project-actions {
+        opacity: 1;
+      }
+      .project-action {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-faint);
+        font-size: 13px;
+      }
+      .project-action:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-main);
+      }
+      .project-action.pinned {
+        color: var(--accent);
+      }
+      .section-label {
+        font-size: 10.5px;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-faint);
+        padding: 14px 12px 4px;
+      }
+      .modal-custom {
+        display: flex;
+        gap: 6px;
+        padding: 8px 12px 4px;
+      }
+      .modal-custom input {
+        flex: 1;
+        background: var(--bg-card);
+        border: 1px solid var(--border-soft);
+        border-radius: 10px;
+        padding: 10px 12px;
+        font-size: 13px;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        color: var(--text-main);
+      }
+      .modal-custom input:focus {
+        border-color: var(--accent);
+      }
+      .modal-custom button {
+        padding: 0 16px;
+        background: var(--accent);
+        color: #0a0a0b;
+        border-radius: 10px;
+        font-weight: 600;
+        font-size: 13px;
+      }
+      .modal-custom button:disabled {
+        background: var(--bg-card-hover);
+        color: var(--text-faint);
+      }
+      .modal-error {
+        color: var(--error);
+        font-size: 12.5px;
+        padding: 4px 12px 0;
+      }
+      .modal-footer {
+        display: flex;
+        justify-content: flex-end;
+        padding-top: 4px;
+      }
+      .modal-footer button {
+        padding: 8px 14px;
+        font-size: 13px;
+        color: var(--text-muted);
+        border-radius: 8px;
+      }
+      .modal-footer button:hover {
+        background: var(--bg-card);
+        color: var(--text-main);
+      }
+
+      /* ============================================================
          PIN gate
          ============================================================ */
       .pin-screen {
@@ -1197,6 +1387,19 @@
         return raw;
       }
 
+      /** Friendly working-dir label for the chat header: project name if cwd
+       *  matches a saved project, else folder basename, else null. */
+      function projectLabelFor(session, projects) {
+        const cwd = session?.cwd;
+        if (!cwd) return null;
+        const match = projects?.find((p) => p.path === cwd);
+        if (match) return match.name;
+        // Fallback: last path segment so an ad-hoc cwd still reads as something
+        // meaningful instead of a long absolute path.
+        const parts = cwd.split("/").filter(Boolean);
+        return parts[parts.length - 1] ?? null;
+      }
+
       /** "Today, 11:29 AM" / "Yesterday, 6:14 PM" / "May 24, 11:00 AM". */
       function friendlyTime(ts) {
         const d = new Date(ts);
@@ -1241,6 +1444,12 @@
         const [pinState, setPinState] = useState("none"); // 'none' | 'required' | 'verifying' | 'ok' | 'wrong'
         const [pinError, setPinError] = useState(null);
         const [pinAttemptsLeft, setPinAttemptsLeft] = useState(null);
+        const [projects, setProjects] = useState([]);
+        const [projectsError, setProjectsError] = useState(null);
+        // Picker holds an in-flight intent: when set, the modal is open and
+        // whatever folder the user picks gets paired with .prompt (if any)
+        // before firing session.create.
+        const [picker, setPicker] = useState(null); // null | { agent, prompt? }
 
         const wsRef = useRef(null);
 
@@ -1318,6 +1527,7 @@
                 } else {
                   setPinState("none");
                   send({ type: "session.list" });
+                  send({ type: "projects.list" });
                 }
                 break;
               case "auth.fail":
@@ -1332,6 +1542,7 @@
                 setPinError(null);
                 setPinAttemptsLeft(null);
                 send({ type: "session.list" });
+                send({ type: "projects.list" });
                 break;
               case "pin.fail":
                 setPinState("wrong");
@@ -1414,6 +1625,13 @@
               case "agent.error":
                 setWsError(evt.error);
                 break;
+              case "projects.list":
+                setProjects(evt.projects);
+                setProjectsError(null);
+                break;
+              case "projects.error":
+                setProjectsError(evt.reason);
+                break;
             }
           }
 
@@ -1459,13 +1677,21 @@
         // is created server-side. Used by the empty-hero composer so the user
         // can "type-then-send" without the two-step (create → then type) UX.
         const pendingPromptRef = useRef(null);
+
+        // Open the project picker. The picker calls actuallyStartNew() with
+        // the chosen cwd. We thread the prompt through `picker.prompt` so
+        // hero composer + suggestion pills both flow through the same path.
         function createSession() {
-          send({ type: "session.create", agent: selectedAgent });
+          setPicker({ agent: selectedAgent });
         }
         function startNewWithPrompt(agent, prompt) {
           setSelectedAgent(agent);
-          pendingPromptRef.current = prompt;
-          send({ type: "session.create", agent });
+          setPicker({ agent, prompt });
+        }
+        function actuallyStartNew({ agent, prompt, cwd }) {
+          pendingPromptRef.current = prompt ?? null;
+          send({ type: "session.create", agent, cwd });
+          setPicker(null);
         }
         function openSession(id) {
           setActiveId(id);
@@ -1529,6 +1755,7 @@
             <${MainArea}
               chat=${chat}
               session=${sessions.find((s) => s.id === activeId)}
+              projects=${projects}
               wsState=${wsState}
               wsError=${wsError}
               selectedAgent=${selectedAgent}
@@ -1545,7 +1772,192 @@
             class="backdrop"
             onClick=${() => setSidebarOpen(false)}
           ></div>`}
+          ${picker &&
+          html`<${ProjectPicker}
+            agent=${picker.agent}
+            prompt=${picker.prompt}
+            projects=${projects}
+            error=${projectsError}
+            onPick=${(cwd) =>
+              actuallyStartNew({
+                agent: picker.agent,
+                prompt: picker.prompt,
+                cwd,
+              })}
+            onClose=${() => setPicker(null)}
+            onAddProject=${(path, name) =>
+              send({ type: "projects.add", path, name, pinned: true })}
+            onRemoveProject=${(path) =>
+              send({ type: "projects.remove", path })}
+            onTogglePin=${(path) =>
+              send({ type: "projects.toggle_pin", path })}
+          />`}
         `;
+      }
+
+      /**
+       * Bottom-sheet modal where the user picks WHERE the new chat will run.
+       * Pinned + saved projects, then Home (~), then a custom path input.
+       * `prompt` (optional) is just a hint shown in the header so the user
+       * knows the picker is mid-flight in a "type-then-pick" hero flow.
+       */
+      function ProjectPicker({
+        agent,
+        prompt,
+        projects,
+        error,
+        onPick,
+        onClose,
+        onAddProject,
+        onRemoveProject,
+        onTogglePin,
+      }) {
+        const [customPath, setCustomPath] = useState("");
+        const inputRef = useRef(null);
+
+        useEffect(() => {
+          // Focus the custom path input on mount so power users can paste a
+          // path immediately. Mobile keyboards may not pop up automatically
+          // but desktop gets the focus ring.
+          inputRef.current?.focus();
+        }, []);
+
+        function submitCustom() {
+          const path = customPath.trim();
+          if (!path) return;
+          // Heuristic: if the path doesn't look like an existing project, add
+          // it AND start. The server's projects.add validates the path; if it
+          // fails we just fire onPick with the typed value and let session
+          // creation use it as a one-off (server falls back to default cwd if
+          // invalid).
+          onAddProject(path);
+          onPick(path);
+        }
+
+        const pinned = projects.filter((p) => p.pinned);
+        const others = projects.filter((p) => !p.pinned);
+
+        return html`
+          <div
+            class="modal-backdrop"
+            onClick=${(e) => {
+              if (e.target.classList.contains("modal-backdrop")) onClose();
+            }}
+          >
+            <div class="modal" role="dialog" aria-label="Pick a project">
+              <div class="modal-grabber"></div>
+              <h3>Where should ${agentLabel(agent)} work?</h3>
+              ${prompt &&
+              html`<div class="modal-sub">
+                Will send: <em>${prompt.length > 80 ? prompt.slice(0, 80) + "…" : prompt}</em>
+              </div>`}
+              ${error && html`<div class="modal-error">${error}</div>`}
+              <div class="modal-list">
+                ${pinned.length > 0 &&
+                html`<div class="section-label">Pinned</div>`}
+                ${pinned.map(
+                  (p) => html`<${ProjectRow}
+                    key=${p.path}
+                    project=${p}
+                    onPick=${() => onPick(p.path)}
+                    onTogglePin=${() => onTogglePin(p.path)}
+                    onRemove=${() => onRemoveProject(p.path)}
+                  />`,
+                )}
+                ${others.length > 0 &&
+                html`<div class="section-label">Saved</div>`}
+                ${others.map(
+                  (p) => html`<${ProjectRow}
+                    key=${p.path}
+                    project=${p}
+                    onPick=${() => onPick(p.path)}
+                    onTogglePin=${() => onTogglePin(p.path)}
+                    onRemove=${() => onRemoveProject(p.path)}
+                  />`,
+                )}
+                <div class="section-label">Default</div>
+                <div
+                  class="project-row"
+                  onClick=${() => onPick("")}
+                  role="button"
+                >
+                  <div class="project-icon">🏠</div>
+                  <div class="project-meta">
+                    <div class="project-name">Home</div>
+                    <div class="project-path">~ (default working directory)</div>
+                  </div>
+                </div>
+                <div class="section-label">Custom path</div>
+                <div class="modal-custom">
+                  <input
+                    ref=${inputRef}
+                    value=${customPath}
+                    placeholder="/Users/you/Documents/GitHub/my-app"
+                    autocapitalize="off"
+                    autocorrect="off"
+                    spellcheck="false"
+                    onInput=${(e) => setCustomPath(e.target.value)}
+                    onKeyDown=${(e) => e.key === "Enter" && submitCustom()}
+                  />
+                  <button
+                    disabled=${!customPath.trim()}
+                    onClick=${submitCustom}
+                  >
+                    Add & start
+                  </button>
+                </div>
+              </div>
+              <div class="modal-footer">
+                <button onClick=${onClose}>Cancel</button>
+              </div>
+            </div>
+          </div>
+        `;
+      }
+
+      function ProjectRow({ project, onPick, onTogglePin, onRemove }) {
+        const initial = (project.name || "?").trim().slice(0, 1).toUpperCase();
+        // Collapse $HOME to "~" so common paths read shorter on mobile.
+        const home = "/Users/" + (location.hostname || "");
+        let displayPath = project.path;
+        // Best-effort home collapse using a known prefix pattern.
+        const homeMatch = displayPath.match(/^\/Users\/[^/]+/);
+        if (homeMatch) displayPath = "~" + displayPath.slice(homeMatch[0].length);
+        return html`<div
+          class="project-row"
+          onClick=${onPick}
+          role="button"
+        >
+          <div class="project-icon">${initial}</div>
+          <div class="project-meta">
+            <div class="project-name">${project.name}</div>
+            <div class="project-path">${displayPath}</div>
+          </div>
+          <div class="project-actions">
+            <button
+              class=${"project-action" + (project.pinned ? " pinned" : "")}
+              onClick=${(e) => {
+                e.stopPropagation();
+                onTogglePin();
+              }}
+              aria-label=${project.pinned ? "Unpin" : "Pin"}
+              title=${project.pinned ? "Unpin" : "Pin"}
+            >
+              ${project.pinned ? "★" : "☆"}
+            </button>
+            <button
+              class="project-action"
+              onClick=${(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              aria-label="Remove"
+              title="Remove"
+            >
+              ✕
+            </button>
+          </div>
+        </div>`;
       }
 
       function PinScreen({ error, attemptsLeft, busy, onSubmit, onUnpair }) {
@@ -1736,6 +2148,7 @@
       function MainArea({
         chat,
         session,
+        projects,
         wsState,
         wsError,
         selectedAgent,
@@ -1786,9 +2199,13 @@
             <div class="header-title">
               <h2>${prettyTitle(session)}</h2>
               ${session &&
-              html`<span class="header-meta"
-                >${friendlyTime(session.createdAt)}</span
-              >`}
+              html`<span class="header-meta">
+                ${(() => {
+                  const proj = projectLabelFor(session, projects);
+                  const time = friendlyTime(session.createdAt);
+                  return proj ? `${proj} · ${time}` : time;
+                })()}
+              </span>`}
             </div>
             ${chat.status === "running" &&
             html`<span class="badge running">working</span>`}

@@ -69,13 +69,13 @@ export class SessionStore {
   listSessions(): SessionSummary[] {
     const rows = this.db
       .prepare(
-        `SELECT s.id, s.title, s.agent, s.status, s.created_at AS createdAt,
+        `SELECT s.id, s.title, s.agent, s.status, s.cwd, s.created_at AS createdAt,
                 s.last_message_at AS lastMessageAt,
                 (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS messageCount
          FROM sessions s
          ORDER BY s.last_message_at DESC`,
       )
-      .all() as Array<SessionSummary & { agent: string; status: string }>;
+      .all() as Array<SessionSummary & { agent: string; status: string; cwd: string | null }>;
     return rows.map((r) => ({
       ...r,
       agent: r.agent as AgentName,

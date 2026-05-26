@@ -12,6 +12,20 @@ export type SessionSummary = {
   lastMessageAt: number;
   status: SessionStatus;
   messageCount: number;
+  /** Working dir the agent was spawned in. May be null for very old rows. */
+  cwd?: string | null;
+};
+
+/** A saved working directory the user can quickly spawn a chat into. */
+export type Project = {
+  /** Display label (defaults to folder basename). 60-char max. */
+  name: string;
+  /** Absolute filesystem path. */
+  path: string;
+  /** Pinned projects float to the top of the picker. */
+  pinned: boolean;
+  /** ms epoch when first added. */
+  addedAt: number;
 };
 
 // Opaque message shape coming from the underlying agent SDK.
@@ -49,11 +63,21 @@ export type PocketAgentsCommand =
   | { type: "auth"; token: string; protocolVersion: number }
   | { type: "pin.verify"; pin: string }
   | { type: "session.list" }
-  | { type: "session.create"; agent?: AgentName; title?: string }
+  | {
+      type: "session.create";
+      agent?: AgentName;
+      title?: string;
+      /** Override the default cwd (~) for this session only. */
+      cwd?: string;
+    }
   | { type: "session.resume"; sessionId: string }
   | { type: "session.stop"; sessionId: string }
   | { type: "session.delete"; sessionId: string }
   | { type: "prompt"; sessionId: string; text: string }
+  | { type: "projects.list" }
+  | { type: "projects.add"; path: string; name?: string; pinned?: boolean }
+  | { type: "projects.remove"; path: string }
+  | { type: "projects.toggle_pin"; path: string }
   | { type: "ping" };
 
 // ----- Server → Client events -----
@@ -81,6 +105,8 @@ export type PocketAgentsEvent =
   | { type: "agent.message"; sessionId: string; message: AgentMessage }
   | { type: "agent.status"; sessionId: string; status: SessionStatus; durationMs?: number }
   | { type: "agent.error"; sessionId: string; error: string }
+  | { type: "projects.list"; projects: Project[] }
+  | { type: "projects.error"; reason: string }
   | { type: "pong"; t: number };
 
 // ----- Pairing payload (encoded in QR) -----

@@ -10,6 +10,7 @@ import type {
 import { PROTOCOL_VERSION } from "@pocket-agents/protocol";
 import { SessionStore } from "./store.ts";
 import { Runner } from "./runner.ts";
+import { ProjectStore } from "./projects.ts";
 
 const STATIC_DIR = resolve(
   dirname(fileURLToPath(import.meta.url)),
@@ -52,6 +53,7 @@ export function startServer(opts: {
 }): ServerHandle {
   const pinRequired = !!opts.pin;
   const store = new SessionStore();
+  const projects = new ProjectStore();
   const runner = new Runner(store);
 
   // Fan out runner events to all authed sockets
@@ -209,13 +211,53 @@ export function startServer(opts: {
             });
 
           case "session.create": {
+            // cwd resolution: explicit per-session > AGENTDECK default > homedir.
+            // We don't trust the client blindly; a non-existent path falls back
+            // to the default so the agent doesn't refuse to spawn.
+            const wantedCwd = (cmd.cwd ?? "").trim();
+            const cwd = wantedCwd || DEFAULT_SESSION_CWD;
             const session = store.createSession({
               agent: isSupportedAgent(cmd.agent) ? cmd.agent : "claude",
               title: cmd.title,
-              cwd: DEFAULT_SESSION_CWD,
+              cwd,
             });
             return send(ws, { type: "session.created", session });
           }
+
+          case "projects.list":
+            return send(ws, {
+              type: "projects.list",
+              projects: projects.list(),
+            });
+
+          case "projects.add": {
+            const result = projects.add({
+              path: cmd.path,
+              name: cmd.name,
+              pinned: cmd.pinned,
+            });
+            if (!result.ok) {
+              return send(ws, { type: "projects.error", reason: result.error });
+            }
+            return send(ws, {
+              type: "projects.list",
+              projects: projects.list(),
+            });
+          }
+
+          case "projects.remove":
+            projects.remove(cmd.path);
+            return send(ws, {
+              type: "projects.list",
+              projects: projects.list(),
+            });
+
+          case "projects.toggle_pin":
+            projects.togglePin(cmd.path);
+            return send(ws, {
+              type: "projects.list",
+              projects: projects.list(),
+            });
 
           case "session.resume": {
             const session = store.getSession(cmd.sessionId);
