@@ -1,13 +1,13 @@
 # AgentDeck
 
-> Pocket-sized remote control for coding agents. One command on your laptop, open a link on any device, chat with Claude Code from wherever you are.
+> Pocket-sized remote control for coding agents. One command on your laptop, open a link on any device, chat with Claude Code or Codex from wherever you are.
 
 ```
 ┌──────────┐       Cloudflare       ┌──────────┐       AgentAdapter      ┌─────────────────┐
 │  Phone   │ ─────── tunnel ──────▶ │  Laptop  │ ──────────────────────▶ │  Claude Code    │
-│ (Browser)│         (WSS)          │  (Bun)   │                         │  Codex (soon)   │
+│ (Browser)│         (WSS)          │  (Bun)   │                         │  Codex CLI      │
 └──────────┘                        └──────────┘                         └─────────────────┘
-        open URL           persists sessions in            spawns @anthropic-ai/claude-agent-sdk
+        open URL           persists sessions in            spawns agent adapters
         once               ~/.agentdeck/agentdeck.db        with session resume
 ```
 
@@ -17,7 +17,7 @@
 
 ## Status
 
-`v0.2.0` — Web dashboard + Claude Code adapter. Codex CLI adapter is stubbed and lands next.
+`v0.2.0` — Web dashboard + Claude Code adapter + Codex CLI adapter.
 
 ## Quick start
 
@@ -40,11 +40,11 @@ That's the whole flow. No native app, no Expo, no signup.
 
 ### CLI flags
 
-| Flag | Effect |
-|---|---|
-| `--no-tunnel` | LAN-only mode. URL uses your laptop's LAN IP. Phone must be on the same Wi-Fi. |
-| `--rotate-token` | Invalidates the current dashboard URL. All paired devices lose access. |
-| `--help` | Show help. |
+| Flag             | Effect                                                                         |
+| ---------------- | ------------------------------------------------------------------------------ |
+| `--no-tunnel`    | LAN-only mode. URL uses your laptop's LAN IP. Phone must be on the same Wi-Fi. |
+| `--rotate-token` | Invalidates the current dashboard URL. All paired devices lose access.         |
+| `--help`         | Show help.                                                                     |
 
 Env: `AGENTDECK_PORT` (default `3737`), `AGENTDECK_HOME` (default `~/.agentdeck`).
 
@@ -73,7 +73,7 @@ agentdeck/
 │       └── static/dashboard.html   Single-file Preact SPA (no build step)
 └── packages/
     ├── protocol/           Event types shared between server and dashboard
-    └── adapters/           AgentAdapter interface + ClaudeCodeAdapter
+    └── adapters/           AgentAdapter interface + Claude/Codex adapters
 ```
 
 ### Wire protocol
@@ -91,22 +91,41 @@ Server responds with `auth.ok` (or `auth.fail`). Subsequent commands: `session.l
 Each conversation has two IDs:
 
 - **AgentDeck session id** (UUID) — the unit of conversation the dashboard sees. Stable across agents.
-- **Native session id** (Claude SDK's `session_id`) — tracked per turn so the adapter passes `resume: <id>` on the next prompt, keeping the conversation context server-side.
+- **Native session id** (Claude SDK `session_id` or Codex thread id) — tracked per turn so the adapter can resume on the next prompt, keeping the conversation context server-side.
 
 When the browser reconnects, it requests `session.resume`; server sends the full message history from SQLite, then live-streams new events. You can close the tab and come back — context is intact.
 
-## Adding a new adapter (Codex, Aider, ...)
+## Codex CLI support
+
+AgentDeck runs Codex through `codex exec --json` and resumes each chat with `codex exec resume`.
+
+Defaults:
+
+- `AGENTDECK_CODEX_BIN=codex`
+- `AGENTDECK_CODEX_APPROVAL=never`
+- `AGENTDECK_CODEX_SANDBOX=danger-full-access`
+- `AGENTDECK_CODEX_MODEL` unset, so Codex uses your local config
+
+Set `AGENTDECK_CODEX_SANDBOX=workspace-write` or `read-only` if you want a tighter remote-control posture.
+
+## Adding a new adapter (Aider, ...)
 
 Implement [`AgentAdapter`](packages/adapters/src/types.ts):
 
 ```ts
-import type { AgentAdapter, AdapterRunOptions, AdapterRunResult } from "./types";
+import type {
+  AgentAdapter,
+  AdapterRunOptions,
+  AdapterRunResult,
+} from "./types";
 
-export class CodexAdapter implements AgentAdapter {
-  readonly name = "codex" as const;
+export class AiderAdapter implements AgentAdapter {
+  readonly name = "aider" as const;
 
-  async *run(opts: AdapterRunOptions): AsyncGenerator<AgentMessage, AdapterRunResult> {
-    // Spawn `codex` subprocess (or use its SDK), stream events, yield AgentMessage.
+  async *run(
+    opts: AdapterRunOptions,
+  ): AsyncGenerator<AgentMessage, AdapterRunResult> {
+    // Spawn a subprocess (or use an SDK), stream events, yield AgentMessage.
     // Track the native session id you receive so callers can resume next turn.
   }
 }
@@ -135,9 +154,10 @@ The native app may come back later as a thin shell around the same web view, mai
 ## Roadmap
 
 - [x] Claude Code adapter
+- [x] Codex CLI adapter
 - [x] Web dashboard
 - [x] Cloudflare quick tunnel built-in
-- [ ] Codex CLI adapter
+- [ ] More agent adapters
 - [ ] PWA install + push notifications on `agent.done`
 - [ ] Tool permission prompts surfaced to the dashboard (approve/deny per tool call)
 - [ ] BYO custom domain (named Cloudflare tunnel, not random trycloudflare URL)

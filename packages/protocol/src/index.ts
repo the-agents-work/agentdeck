@@ -30,6 +30,7 @@ export type AgentMessage = {
 // ----- Client → Server commands -----
 export type AgentDeckCommand =
   | { type: "auth"; token: string; protocolVersion: number }
+  | { type: "pin.verify"; pin: string }
   | { type: "session.list" }
   | { type: "session.create"; agent?: AgentName; title?: string }
   | { type: "session.resume"; sessionId: string }
@@ -40,8 +41,17 @@ export type AgentDeckCommand =
 
 // ----- Server → Client events -----
 export type AgentDeckEvent =
-  | { type: "auth.ok"; protocolVersion: number; agent: AgentName[]; serverVersion: string }
+  | {
+      type: "auth.ok";
+      protocolVersion: number;
+      agent: AgentName[];
+      serverVersion: string;
+      /** If true, the client must send `pin.verify` before anything else. */
+      pinRequired: boolean;
+    }
   | { type: "auth.fail"; reason: string }
+  | { type: "pin.ok" }
+  | { type: "pin.fail"; reason: string; attemptsRemaining: number }
   | { type: "session.list"; sessions: SessionSummary[] }
   | { type: "session.created"; session: SessionSummary }
   | { type: "session.deleted"; sessionId: string }

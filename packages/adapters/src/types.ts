@@ -2,7 +2,7 @@ import type { AgentMessage, AgentName } from "@agentdeck/protocol";
 
 export type AdapterRunOptions = {
   prompt: string;
-  // Adapter-native session id to resume from (e.g. Claude SDK's session_id).
+  // Adapter-native session id to resume from (e.g. Claude session_id or Codex thread id).
   // null = start a fresh session.
   resumeFromNativeId?: string | null;
   // Working directory to run the agent in. Defaults to process.cwd().
@@ -31,5 +31,7 @@ export interface AgentAdapter {
    *
    * Returns the final native session id so the caller can resume next turn.
    */
-  run(opts: AdapterRunOptions): AsyncGenerator<AgentMessage, AdapterRunResult, void>;
+  run(
+    opts: AdapterRunOptions,
+  ): AsyncGenerator<AgentMessage, AdapterRunResult, void>;
 }
