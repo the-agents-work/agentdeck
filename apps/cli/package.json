@@ -1,0 +1,30 @@
+{
+  "name": "@agentdeck/cli",
+  "version": "0.1.0",
+  "description": "AgentDeck CLI — backend that bridges mobile to coding agents on this machine.",
+  "type": "module",
+  "bin": {
+    "agentdeck": "./dist/index.js"
+  },
+  "main": "./src/index.ts",
+  "scripts": {
+    "start": "bun src/index.ts",
+    "dev": "bun --watch src/index.ts",
+    "build": "bun build src/index.ts --target=bun --outfile=dist/index.js",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@agentdeck/adapters": "*",
+    "@agentdeck/protocol": "*",
+    "cloudflared": "^0.7.1",
+    "qrcode-terminal": "^0.12.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.10",
+    "@types/qrcode-terminal": "^0.12.2",
+    "typescript": "^5.6.2"
+  },
+  "engines": {
+    "bun": ">=1.1"
+  }
+}

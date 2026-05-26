@@ -1,0 +1,36 @@
+{
+  "expo": {
+    "name": "AgentDeck",
+    "slug": "agentdeck",
+    "scheme": "agentdeck",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.theagentswork.agentdeck",
+      "infoPlist": {
+        "NSCameraUsageDescription": "AgentDeck needs camera access to scan the pairing QR code shown by your laptop."
+      }
+    },
+    "android": {
+      "package": "com.theagentswork.agentdeck",
+      "permissions": ["CAMERA"]
+    },
+    "web": {
+      "bundler": "metro"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "AgentDeck needs camera access to scan the pairing QR code."
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true
+    }
+  }
+}

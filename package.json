@@ -1,0 +1,32 @@
+{
+  "name": "agentdeck",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Mobile remote control for coding agents (Claude Code, Codex, ...). Pair via QR, run from anywhere.",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "cli": "bun run --cwd apps/cli src/index.ts",
+    "cli:dev": "bun --watch apps/cli/src/index.ts",
+    "mobile": "npm --workspace apps/mobile run start",
+    "build": "npm --workspaces --if-present run build",
+    "typecheck": "npm --workspaces --if-present run typecheck",
+    "fmt": "prettier --write \"**/*.{ts,tsx,json,md}\""
+  },
+  "devDependencies": {
+    "prettier": "^3.3.3",
+    "typescript": "~5.9.2"
+  },
+  "overrides": {
+    "react": "19.1.0",
+    "react-dom": "19.1.0"
+  },
+  "engines": {
+    "node": ">=20",
+    "bun": ">=1.1"
+  },
+  "license": "MIT",
+  "repository": "github:the-agents-work/agentdeck"
+}
