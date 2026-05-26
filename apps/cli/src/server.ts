@@ -1,6 +1,7 @@
 import type { ServerWebSocket } from "bun";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve } from "node:path";
+import { homedir } from "node:os";
 import type { AgentDeckCommand, AgentDeckEvent } from "@agentdeck/protocol";
 import { PROTOCOL_VERSION } from "@agentdeck/protocol";
 import { SessionStore } from "./store.ts";
@@ -8,6 +9,12 @@ import { Runner } from "./runner.ts";
 
 const STATIC_DIR = resolve(dirname(fileURLToPath(import.meta.url)), "../static");
 const DASHBOARD_FILE = resolve(STATIC_DIR, "dashboard.html");
+
+// Where Claude spawns by default for fresh sessions. We pick $HOME (not the
+// CLI's cwd, which is wherever the user happened to run `bun ...` from) so the
+// agent can freely `git clone`, scaffold projects, and explore without being
+// scoped to the agentdeck repo itself. Override with AGENTDECK_DEFAULT_CWD.
+const DEFAULT_SESSION_CWD = process.env.AGENTDECK_DEFAULT_CWD || homedir();
 
 type ConnData = { authed: boolean; remote: string };
 
@@ -128,6 +135,7 @@ export function startServer(opts: {
             const session = store.createSession({
               agent: cmd.agent ?? "claude",
               title: cmd.title,
+              cwd: DEFAULT_SESSION_CWD,
             });
             return send(ws, { type: "session.created", session });
           }

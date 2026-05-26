@@ -21,9 +21,24 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     let nativeSessionId: string | null = opts.resumeFromNativeId ?? null;
     let ok = true;
 
+    // Permission mode: AgentDeck is a remote control for YOUR OWN laptop, so we
+    // bypass permission gates by default. Without this, every tool call (mkdir,
+    // Write, Edit, Bash) waits on an interactive prompt that the dashboard has
+    // no UI to surface, hanging the run. This matches the user's local
+    // `claude --dangerously-skip-permissions` posture.
+    //
+    // Override via env: AGENTDECK_PERMISSION_MODE=default (or acceptEdits, etc.)
+    const permissionMode =
+      process.env.AGENTDECK_PERMISSION_MODE || "bypassPermissions";
+
     const sdkOptions: Record<string, unknown> = {
       cwd: opts.cwd,
+      permissionMode,
     };
+    if (permissionMode === "bypassPermissions") {
+      // SDK requires this acknowledgement flag alongside bypassPermissions.
+      sdkOptions.allowDangerouslySkipPermissions = true;
+    }
     if (opts.resumeFromNativeId) {
       sdkOptions.resume = opts.resumeFromNativeId;
     }
