@@ -59,6 +59,7 @@ export class SessionStore {
       id,
       title,
       agent: opts.agent,
+      cwd: opts.cwd ?? null,
       createdAt: now,
       lastMessageAt: now,
       status: "idle",
