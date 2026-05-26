@@ -1040,6 +1040,71 @@
         `;
       }
 
+      function PinScreen({ error, attemptsLeft, busy, onSubmit, onUnpair }) {
+        const [val, setVal] = useState("");
+        const ref = useRef(null);
+
+        // Auto-focus + auto-clear on error so the user can retype straight away.
+        useEffect(() => {
+          ref.current?.focus();
+        }, []);
+        useEffect(() => {
+          if (error) {
+            setVal("");
+            ref.current?.focus();
+          }
+        }, [error]);
+
+        function submit() {
+          const trimmed = val.trim();
+          if (trimmed.length >= 4 && !busy) onSubmit(trimmed);
+        }
+
+        return html`
+          <div class="pin-screen">
+            <h2>Enter PIN</h2>
+            <p>
+              This laptop requires a second factor. Enter the PIN you set with
+              <code>agentdeck --set-pin</code>.
+            </p>
+            <input
+              ref=${ref}
+              class=${"pin-input" + (error ? " error" : "")}
+              type="password"
+              inputmode="numeric"
+              autocomplete="off"
+              autocorrect="off"
+              spellcheck="false"
+              maxlength="10"
+              value=${val}
+              disabled=${busy}
+              onInput=${(e) => setVal(e.target.value)}
+              onKeyDown=${(e) => e.key === "Enter" && submit()}
+            />
+            <div class="pin-error">
+              ${error
+                ? attemptsLeft != null
+                  ? `${error} · ${attemptsLeft} attempts left`
+                  : error
+                : ""}
+            </div>
+            <button
+              style="padding: 10px 20px; background: var(--accent); color: #0a0a0b; border-radius: 8px; font-weight: 600;"
+              onClick=${submit}
+              disabled=${busy || val.trim().length < 4}
+            >
+              ${busy ? "Verifying..." : "Unlock"}
+            </button>
+            <button
+              style="color: var(--muted); margin-top: 8px;"
+              onClick=${onUnpair}
+            >
+              Unpair instead
+            </button>
+          </div>
+        `;
+      }
+
       function PairScreen({ onPair }) {
         const [input, setInput] = useState("");
         function handleSubmit() {
@@ -1096,11 +1161,13 @@
                 (agent) => html`
                   <button
                     key=${agent}
+                    data-agent=${agent}
                     class=${"agent-option" +
                     (agent === selectedAgent ? " active" : "")}
                     onClick=${() => onSelectAgent(agent)}
+                    aria-label=${agentLabel(agent)}
                   >
-                    ${agentLabel(agent)}
+                    <span class="agent-glyph"></span>${agentLabel(agent)}
                   </button>
                 `,
               )}
@@ -1122,9 +1189,13 @@
                         onClick=${() => onOpen(s.id)}
                       >
                         <div style="flex: 1; min-width: 0;">
-                          <div class="session-title">${s.title}</div>
+                          <div class="session-title">
+                            <span class="agent-chip" data-agent=${s.agent}>
+                              <span class="agent-glyph"></span>${agentLabel(s.agent)}
+                            </span>${s.title}
+                          </div>
                           <div class="session-meta">
-                            ${agentLabel(s.agent)} · ${s.messageCount} msgs ·
+                            ${s.messageCount} msgs ·
                             ${timeAgo(s.lastMessageAt)} ago
                           </div>
                         </div>
@@ -1172,6 +1243,9 @@
         return html`
           <header class="main-header">
             <button class="menu-btn" onClick=${onOpenSidebar}>☰</button>
+            <span class="agent-chip" data-agent=${currentAgent}>
+              <span class="agent-glyph"></span>${agentLabel(currentAgent)}
+            </span>
             <h2>${session?.title ?? "Chat"}</h2>
             ${chat.status === "running" &&
             html`<span class="badge running">working</span>`}
