@@ -1978,6 +1978,7 @@
                 break;
               case "session.list":
                 setSessions(evt.sessions);
+                setSessionsLoaded(true);
                 break;
               case "session.created":
                 setSessions((prev) => [
@@ -2238,6 +2239,7 @@
         return html`
           <${Sidebar}
             sessions=${sessions}
+            sessionsLoaded=${sessionsLoaded}
             activeId=${activeId}
             availableAgents=${availableAgents}
             selectedAgent=${selectedAgent}
@@ -2636,6 +2638,7 @@
 
       function Sidebar({
         sessions,
+        sessionsLoaded,
         activeId,
         availableAgents,
         selectedAgent,
@@ -2701,7 +2704,9 @@
             <div class="sessions">
               ${sessions.length === 0
                 ? html`<div class="empty">
-                    No chats yet.<br />Start a new one above.
+                    ${sessionsLoaded
+                      ? html`No chats yet.<br />Start a new one above.`
+                      : html`Loading chats…`}
                   </div>`
                 : html`<div class="sessions-label">Recent</div>
                     ${sessions.map(
