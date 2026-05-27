@@ -2,7 +2,6 @@
 // dist/index.js works as a CLI binary. We omit it from the TS source so
 // development runs (`bun src/index.ts`) don't trip on a stale duplicate
 // shebang after re-bundling.
-import { randomInt } from "node:crypto";
 import qrcode from "qrcode-terminal";
 import { startServer } from "./server.ts";
 import { startTunnel } from "./tunnel.ts";
@@ -10,21 +9,8 @@ import { getLanIp } from "./net.ts";
 import {
   loadOrCreateServerName,
   loadOrCreateToken,
-  loadPin,
   rotateToken,
-  savePin,
 } from "./pair.ts";
-
-/**
- * Generate a cryptographically-random 6-digit PIN. We use randomInt() from
- * node:crypto (CSPRNG-backed) rather than Math.random() which is predictable.
- * 6 digits = 10^6 = 1M possibilities; combined with the 5-attempt server lockout
- * that's ~200k expected guesses to break — orders of magnitude beyond what
- * a casual leak-then-poke attack would attempt.
- */
-function generateRandomPin(): string {
-  return String(randomInt(0, 1_000_000)).padStart(6, "0");
-}
 
 const VERSION = "0.1.0";
 
@@ -35,56 +21,19 @@ const SHOW_HELP = args.has("--help") || args.has("-h");
 const ROTATE = args.has("--rotate-token");
 const PORT = Number(process.env.POCKETAGENTS_PORT ?? 3737);
 
-// One-shot PIN management commands. Run them then exit — never start the server.
-const setPinIdx = argv.indexOf("--set-pin");
-if (setPinIdx >= 0) {
-  const newPin = argv[setPinIdx + 1];
-  if (!newPin || newPin.length < 4 || newPin.length > 10) {
-    console.error("Usage: pocket-agents --set-pin <4-10 chars>");
-    process.exit(2);
-  }
-  savePin(newPin);
-  console.log("PIN saved to ~/.pocket-agents/pin (mode 0600).");
-  console.log("Next start of `pocket-agents` will require this PIN after pairing.");
-  process.exit(0);
-}
-if (args.has("--clear-pin")) {
-  savePin("");
-  console.log("PIN cleared. Dashboard no longer requires a PIN.");
-  process.exit(0);
-}
-if (args.has("--gen-pin")) {
-  const newPin = generateRandomPin();
-  savePin(newPin);
-  console.log("");
-  console.log("───── New random PIN ─────");
-  console.log("");
-  console.log(`  ${newPin}`);
-  console.log("");
-  console.log("──────────────────────────");
-  console.log("");
-  console.log("Saved to ~/.pocket-agents/pin (mode 0600).");
-  console.log("Remember this PIN — it won't be printed again unless you rotate.");
-  process.exit(0);
-}
-
 if (SHOW_HELP) {
   console.log(`Pocket Agents CLI v${VERSION}
 
 Usage:
-  pocket-agents                   Start server + Cloudflare tunnel, print dashboard URL
+  pocket-agents                       Start server + Cloudflare tunnel, print dashboard URL
   pocket-agents --no-tunnel           LAN-only mode (use laptop's LAN IP, no tunnel)
   pocket-agents --rotate-token        Generate a fresh pairing token (invalidates old links)
-  pocket-agents --gen-pin             Generate a random 6-digit PIN and print it once.
-  pocket-agents --set-pin <4-10>      Save a PIN you choose. Dashboard prompts after pairing.
-  pocket-agents --clear-pin           Remove the saved PIN.
   pocket-agents --help                Show this
 
 Env:
   POCKETAGENTS_PORT       Server port (default: 3737)
   POCKETAGENTS_HOME       Config + db dir (default: ~/.pocket-agents)
   POCKETAGENTS_NO_TUNNEL  Skip cloudflared
-  POCKETAGENTS_PIN        PIN value (overrides ~/.pocket-agents/pin file)
 
 Docs: https://github.com/the-agents-work/pocket-agents
 `);
@@ -93,21 +42,13 @@ Docs: https://github.com/the-agents-work/pocket-agents
 
 const token = ROTATE ? rotateToken() : loadOrCreateToken();
 const serverName = loadOrCreateServerName();
-const pin = loadPin();
 
 console.log(`Pocket Agents v${VERSION}`);
 console.log(`Server name: ${serverName}`);
 console.log(`Config dir:  ${process.env.POCKETAGENTS_HOME ?? "~/.pocket-agents"}`);
-// Print full PIN on boot. This leaks the PIN into terminal scrollback /
-// screenshots — fine for the "personal laptop, my own eyes" use case this
-// CLI is built for. If you ever share-screen on this terminal, run
-// `pocket-agents --clear-pin` first or scroll past this line.
-console.log(
-  `PIN gate:    ${pin ? `ENABLED · pin = ${pin}` : "off (use --gen-pin or --set-pin to enable)"}`,
-);
 console.log("");
 
-const server = startServer({ port: PORT, token, pin, version: VERSION });
+const server = startServer({ port: PORT, token, version: VERSION });
 console.log(`Listening on ${server.url}`);
 
 const lanIp = getLanIp();
@@ -134,15 +75,18 @@ if (NO_TUNNEL) {
   }
 }
 
-// One-shot tokenized dashboard URL. Open in any browser to pair this device;
+// One-shot tokenized dashboard URLs. Open in any browser to pair this device;
 // the page strips the token from the URL and stores it in localStorage so
 // subsequent reloads stay paired without exposing the token in history.
-const dashboardUrl = `${publicUrl}/?t=${encodeURIComponent(token)}`;
+const tokenParam = `?t=${encodeURIComponent(token)}`;
+const dashboardUrl = `${publicUrl}/${tokenParam}`;
+const localUrl = `http://localhost:${server.port}/${tokenParam}`;
 
 console.log("");
 console.log("──────────────── Open this URL on any device ────────────────");
 console.log("");
-console.log(`  ${dashboardUrl}`);
+console.log(`  Local   ${localUrl}`);
+console.log(`  Tunnel  ${dashboardUrl}`);
 console.log("");
 console.log("  (Scan QR below from your phone to open in mobile browser)");
 console.log("");

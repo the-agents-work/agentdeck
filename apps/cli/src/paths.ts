@@ -7,11 +7,10 @@ export const CONFIG_DIR =
 export const DB_PATH = join(CONFIG_DIR, "pocket-agents.db");
 export const TOKEN_PATH = join(CONFIG_DIR, "token");
 export const SERVER_NAME_PATH = join(CONFIG_DIR, "server_name");
-export const PIN_PATH = join(CONFIG_DIR, "pin");
 export const PROJECTS_PATH = join(CONFIG_DIR, "projects.json");
 
 // Pre-rename users had everything under ~/.agentdeck. On first boot under the
-// new brand, move the directory across so they keep their token, PIN, chat
+// new brand, move the directory across so they keep their token, chat
 // history, etc. without needing to re-pair. Best-effort: if the rename fails
 // (cross-device, permission, ...) we fall through and the user starts fresh.
 const LEGACY_DIR = join(homedir(), ".agentdeck");

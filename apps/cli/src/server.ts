@@ -26,16 +26,8 @@ const DASHBOARD_FILE = resolve(STATIC_DIR, "dashboard.html");
 const DEFAULT_SESSION_CWD = process.env.POCKETAGENTS_DEFAULT_CWD || homedir();
 const SUPPORTED_AGENTS: AgentName[] = ["claude", "codex"];
 
-// How many wrong PIN attempts per WS connection before we drop the socket.
-// Don't make it too generous — token leak + bruteforce of a short PIN otherwise
-// becomes trivial. 5 is enough for fat-finger users without enabling 10k-try
-// scripts (they'd have to keep re-connecting + re-authing with the token).
-const MAX_PIN_ATTEMPTS = 5;
-
 type ConnData = {
   authed: boolean;
-  pinVerified: boolean;
-  pinAttempts: number;
   remote: string;
 };
 
@@ -48,11 +40,8 @@ export type ServerHandle = {
 export function startServer(opts: {
   port: number;
   token: string;
-  /** Optional second-factor PIN. If null/undefined, the PIN gate is disabled. */
-  pin: string | null;
   version: string;
 }): ServerHandle {
-  const pinRequired = !!opts.pin;
   const store = new SessionStore();
   const projects = new ProjectStore();
   const runner = new Runner(store);
@@ -86,10 +75,7 @@ export function startServer(opts: {
     }
     const data = JSON.stringify(wire);
     for (const ws of sockets) {
-      // Only fan out to fully-authenticated sockets. A PIN-gated socket has
-      // already been auth'd at the token layer; we still don't want to leak
-      // session events to a window stuck on the PIN screen of a stolen link.
-      if (ws.data.authed && (!pinRequired || ws.data.pinVerified)) {
+      if (ws.data.authed) {
         ws.send(data);
       }
     }
@@ -131,8 +117,6 @@ export function startServer(opts: {
         const ok = srv.upgrade(req, {
           data: {
             authed: false,
-            pinVerified: false,
-            pinAttempts: 0,
             remote: req.headers.get("x-forwarded-for") ?? "?",
           },
         });
@@ -191,39 +175,7 @@ export function startServer(opts: {
             protocolVersion: PROTOCOL_VERSION,
             agent: SUPPORTED_AGENTS,
             serverVersion: opts.version,
-            pinRequired,
           });
-        }
-
-        // PIN gate — runs AFTER token auth, BEFORE any session/prompt command.
-        if (pinRequired && !ws.data.pinVerified) {
-          if (cmd.type !== "pin.verify") {
-            return send(ws, {
-              type: "pin.fail",
-              reason: "pin required",
-              attemptsRemaining: MAX_PIN_ATTEMPTS - ws.data.pinAttempts,
-            });
-          }
-          ws.data.pinAttempts += 1;
-          if (!constantTimeEqual(cmd.pin, opts.pin ?? "")) {
-            const remaining = MAX_PIN_ATTEMPTS - ws.data.pinAttempts;
-            if (remaining <= 0) {
-              send(ws, {
-                type: "pin.fail",
-                reason: "too many attempts",
-                attemptsRemaining: 0,
-              });
-              ws.close(4003, "pin attempts exhausted");
-              return;
-            }
-            return send(ws, {
-              type: "pin.fail",
-              reason: "wrong pin",
-              attemptsRemaining: remaining,
-            });
-          }
-          ws.data.pinVerified = true;
-          return send(ws, { type: "pin.ok" });
         }
 
         switch (cmd.type) {
@@ -326,7 +278,7 @@ export function startServer(opts: {
               sessionId: cmd.sessionId,
             });
             for (const s of sockets) {
-              if (s.data.authed && (!pinRequired || s.data.pinVerified)) {
+              if (s.data.authed) {
                 s.send(wire);
               }
             }
@@ -355,7 +307,7 @@ export function startServer(opts: {
             }
             const wire = JSON.stringify({ type: "session.updated", session: summary });
             for (const s of sockets) {
-              if (s.data.authed && (!pinRequired || s.data.pinVerified)) {
+              if (s.data.authed) {
                 s.send(wire);
               }
             }
@@ -400,11 +352,6 @@ export function startServer(opts: {
 
           case "auth":
             // Already authed — ignore re-auth
-            return;
-
-          case "pin.verify":
-            // Already PIN-verified above. Silent ignore is safer than echo —
-            // a malicious page can't probe the PIN by sending it repeatedly.
             return;
         }
       },

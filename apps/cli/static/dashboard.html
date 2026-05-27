@@ -1747,92 +1747,6 @@
       }
 
       /* ============================================================
-         PIN gate
-         ============================================================ */
-      .pin-screen {
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 16px;
-        padding: 32px 24px;
-        text-align: center;
-      }
-      .pin-screen h2 {
-        margin: 0;
-        font-size: 22px;
-        font-weight: 500;
-        letter-spacing: -0.01em;
-      }
-      .pin-screen p {
-        color: var(--text-muted);
-        margin: 0;
-        max-width: 32ch;
-        font-size: 14px;
-      }
-      .pin-input {
-        background: var(--bg-card);
-        border: 1px solid var(--border-soft);
-        border-radius: 14px;
-        padding: 16px 20px;
-        font-family: ui-monospace, "SF Mono", Menlo, monospace;
-        font-size: 22px;
-        letter-spacing: 0.45em;
-        text-align: center;
-        width: 220px;
-        color: var(--text-main);
-        margin-top: 6px;
-      }
-      .pin-input:focus {
-        border-color: var(--accent);
-      }
-      .pin-input.error {
-        border-color: var(--error);
-        animation: shake 0.25s;
-      }
-      @keyframes shake {
-        0%,
-        100% {
-          transform: translateX(0);
-        }
-        25% {
-          transform: translateX(-6px);
-        }
-        75% {
-          transform: translateX(6px);
-        }
-      }
-      .pin-error {
-        color: var(--error);
-        font-size: 13px;
-        min-height: 18px;
-      }
-      .pin-screen button[data-primary] {
-        padding: 12px 28px;
-        background: var(--accent);
-        color: #0a0a0b;
-        border-radius: 12px;
-        font-weight: 600;
-        font-size: 14px;
-      }
-      .pin-screen button[data-primary]:disabled {
-        background: var(--bg-card-hover);
-        color: var(--text-faint);
-        cursor: not-allowed;
-      }
-      .pin-screen button[data-secondary] {
-        color: var(--text-faint);
-        font-size: 13px;
-        margin-top: 4px;
-        padding: 6px 12px;
-        border-radius: 8px;
-      }
-      .pin-screen button[data-secondary]:hover {
-        color: var(--text-muted);
-      }
-
-      /* ============================================================
          Pair screen
          ============================================================ */
       .pair-screen {
@@ -2120,9 +2034,6 @@
         const [sidebarOpen, setSidebarOpen] = useState(false);
         const [availableAgents, setAvailableAgents] = useState(["claude"]);
         const [selectedAgent, setSelectedAgent] = useState("claude");
-        const [pinState, setPinState] = useState("none"); // 'none' | 'required' | 'verifying' | 'ok' | 'wrong'
-        const [pinError, setPinError] = useState(null);
-        const [pinAttemptsLeft, setPinAttemptsLeft] = useState(null);
         const [projects, setProjects] = useState([]);
         const [projectsError, setProjectsError] = useState(null);
         const [discovered, setDiscovered] = useState([]);
@@ -2216,16 +2127,8 @@
                     evt.agent.includes(current) ? current : evt.agent[0],
                   );
                 }
-                if (evt.pinRequired) {
-                  setPinState("required");
-                  setPinError(null);
-                  // Don't request session.list yet — it would be rejected by
-                  // the PIN gate. We'll list after pin.ok arrives.
-                } else {
-                  setPinState("none");
-                  send({ type: "session.list" });
-                  send({ type: "projects.list" });
-                }
+                send({ type: "session.list" });
+                send({ type: "projects.list" });
                 break;
               case "auth.fail":
                 setWsState("auth_failed");
@@ -2233,18 +2136,6 @@
                 // Bad token — wipe it so user re-pairs
                 clearToken();
                 setTimeout(() => setToken(null), 400);
-                break;
-              case "pin.ok":
-                setPinState("ok");
-                setPinError(null);
-                setPinAttemptsLeft(null);
-                send({ type: "session.list" });
-                send({ type: "projects.list" });
-                break;
-              case "pin.fail":
-                setPinState("wrong");
-                setPinError(evt.reason);
-                setPinAttemptsLeft(evt.attemptsRemaining);
                 break;
               case "session.list":
                 setSessions(evt.sessions);
@@ -2382,25 +2273,6 @@
               setToken(t);
             }}
           />`;
-
-        // PIN gate: opens AFTER token auth succeeds, BEFORE the sidebar/main UI.
-        // Reuses the same WS — we just don't render the app until pin.ok arrives.
-        if (pinState === "required" || pinState === "wrong" || pinState === "verifying") {
-          return html`<${PinScreen}
-            error=${pinError}
-            attemptsLeft=${pinAttemptsLeft}
-            busy=${pinState === "verifying"}
-            onSubmit=${(p) => {
-              setPinState("verifying");
-              setPinError(null);
-              send({ type: "pin.verify", pin: p });
-            }}
-            onUnpair=${() => {
-              clearToken();
-              setToken(null);
-            }}
-          />`;
-        }
 
         // Holds a prompt that should be auto-sent the moment a fresh session
         // is created server-side. Used by the empty-hero composer so the user
@@ -2865,68 +2737,6 @@
             </button>
           </div>
         </div>`;
-      }
-
-      function PinScreen({ error, attemptsLeft, busy, onSubmit, onUnpair }) {
-        const [val, setVal] = useState("");
-        const ref = useRef(null);
-
-        // Auto-focus + auto-clear on error so the user can retype straight away.
-        useEffect(() => {
-          ref.current?.focus();
-        }, []);
-        useEffect(() => {
-          if (error) {
-            setVal("");
-            ref.current?.focus();
-          }
-        }, [error]);
-
-        function submit() {
-          const trimmed = val.trim();
-          if (trimmed.length >= 4 && !busy) onSubmit(trimmed);
-        }
-
-        return html`
-          <div class="pin-screen">
-            <h2>Enter PIN</h2>
-            <p>
-              This laptop requires a second factor. Enter the PIN you set with
-              <code>pocket-agents --set-pin</code>.
-            </p>
-            <input
-              ref=${ref}
-              class=${"pin-input" + (error ? " error" : "")}
-              type="password"
-              inputmode="numeric"
-              autocomplete="off"
-              autocorrect="off"
-              spellcheck="false"
-              maxlength="10"
-              value=${val}
-              disabled=${busy}
-              onInput=${(e) => setVal(e.target.value)}
-              onKeyDown=${(e) => e.key === "Enter" && submit()}
-            />
-            <div class="pin-error">
-              ${error
-                ? attemptsLeft != null
-                  ? `${error} · ${attemptsLeft} attempts left`
-                  : error
-                : ""}
-            </div>
-            <button
-              data-primary
-              onClick=${submit}
-              disabled=${busy || val.trim().length < 4}
-            >
-              ${busy ? "Verifying…" : "Unlock"}
-            </button>
-            <button data-secondary onClick=${onUnpair}>
-              Unpair instead
-            </button>
-          </div>
-        `;
       }
 
       function PairScreen({ onPair }) {
@@ -3523,15 +3333,10 @@
         // since 0.4. We still match `msg.tool` defensively for older rows
         // already persisted in SQLite.
         if (msg.type === "tool_use" || (msg.type === "assistant" && msg.tool)) {
-          return html` <div class="msg-row assistant">
-            <div class="tool-card">
-              <div class="tool-label">Tool · ${msg.tool?.name ?? "?"}</div>
-              ${msg.tool?.input != null &&
-              html`<div class="tool-body">
-                <pre>${prettyJson(msg.tool.input)}</pre>
-              </div>`}
-            </div>
-          </div>`;
+          return html`<${ToolCard}
+            label=${`Tool · ${msg.tool?.name ?? "?"}`}
+            body=${msg.tool?.input != null ? prettyJson(msg.tool.input) : null}
+          />`;
         }
         if (msg.type === "assistant") {
           // Plain text reply — markdown rendered + sanitized.
@@ -3546,18 +3351,12 @@
         }
         if (msg.type === "tool_result" || msg.toolResult) {
           const out = msg.toolResult?.output;
-          return html` <div class="msg-row assistant">
-            <div
-              class=${"tool-card" + (msg.toolResult?.isError ? " error" : "")}
-            >
-              <div class="tool-label">
-                Tool result${msg.toolResult?.isError ? " (error)" : ""}
-              </div>
-              <div class="tool-body">
-                <pre>${typeof out === "string" ? out : prettyJson(out)}</pre>
-              </div>
-            </div>
-          </div>`;
+          const isError = !!msg.toolResult?.isError;
+          return html`<${ToolCard}
+            label=${`Tool result${isError ? " (error)" : ""}`}
+            body=${typeof out === "string" ? out : prettyJson(out)}
+            error=${isError}
+          />`;
         }
         if (msg.type === "hook") {
           // Surface user-configured Claude Code hooks (pre/post tool use,
@@ -3606,6 +3405,34 @@
               Thinking${preview ? " · " + preview : ""}
             </div>
             <div class="thinking-body"><pre>${text}</pre></div>
+          </div>
+        </div>`;
+      }
+
+      // Collapsed by default; click header to reveal the JSON payload / output.
+      // Tool calls dominate the chat scroll when expanded, so we keep them out
+      // of the way and let the user opt in per row.
+      function ToolCard({ label, body, error }) {
+        const [open, setOpen] = useState(false);
+        const hasBody = body != null && String(body).length > 0;
+        return html`<div class="msg-row assistant">
+          <div
+            class=${"tool-card" +
+              (error ? " error" : "") +
+              (open ? " open" : "") +
+              (hasBody ? " collapsible" : "")}
+          >
+            <div
+              class="tool-label"
+              onClick=${hasBody ? () => setOpen((v) => !v) : undefined}
+              role=${hasBody ? "button" : undefined}
+              aria-expanded=${hasBody ? open : undefined}
+            >
+              ${label}
+            </div>
+            ${hasBody &&
+            open &&
+            html`<div class="tool-body"><pre>${body}</pre></div>`}
           </div>
         </div>`;
       }
