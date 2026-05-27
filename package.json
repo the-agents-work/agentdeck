@@ -7,13 +7,17 @@
     "apps/*",
     "packages/*"
   ],
+  "bin": {
+    "pocket-agents": "./apps/cli/dist/index.js"
+  },
   "scripts": {
     "cli": "bun run --cwd apps/cli src/index.ts",
     "cli:dev": "bun --watch apps/cli/src/index.ts",
     "mobile": "npm --workspace apps/mobile run start",
     "build": "npm --workspaces --if-present run build",
     "typecheck": "npm --workspaces --if-present run typecheck",
-    "fmt": "prettier --write \"**/*.{ts,tsx,json,md}\""
+    "fmt": "prettier --write \"**/*.{ts,tsx,json,md}\"",
+    "prepare": "bun run --cwd apps/cli build || true"
   },
   "devDependencies": {
     "prettier": "^3.3.3",

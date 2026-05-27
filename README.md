@@ -25,9 +25,19 @@
 # 1. Install Bun once (one-liner, no admin)
 curl -fsSL https://bun.sh/install | bash
 
-# 2. Run Pocket Agents (downloads + runs in one command)
-bunx pocket-agents@latest
+# 2. Run Pocket Agents (no npm publish needed — pulls straight from GitHub)
+bunx github:the-agents-work/pocket-agents
 ```
+
+The first run clones the repo to Bun's cache, installs deps, builds the
+CLI bundle, then starts the server. Subsequent runs reuse the cache.
+Pass `--latest` to force a fresh pull:
+`bun pm cache rm pocket-agents && bunx github:the-agents-work/pocket-agents`.
+
+> **Why not `bunx pocket-agents@latest`?** That route requires the package
+> on npmjs.com, which is on the roadmap but blocked on a 2FA setup chore.
+> Installing from GitHub gives the same one-line UX with zero registry
+> dependency, and you always get whatever's on `main`.
 
 On first run, Pocket Agents:
 

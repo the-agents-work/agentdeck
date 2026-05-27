@@ -94,8 +94,30 @@ export function startServer(opts: {
     }
   });
 
-  const server = Bun.serve<ConnData, never>({
-    port: opts.port,
+  // Bun.serve throws EADDRINUSE if `opts.port` is busy. Rather than crashing
+  // (and forcing the user to either find + kill the offender or rerun with a
+  // different POCKETAGENTS_PORT), we retry once on port 0 which tells the OS
+  // to pick any free port. The chosen port is exposed in the returned object
+  // so callers (tunnel, dashboard URL printer) use the actual value, not the
+  // wished-for one. Killing other processes was considered too dangerous —
+  // someone's terminal or unrelated app might be holding 3737 on purpose.
+  let server: ReturnType<typeof Bun.serve<ConnData, never>>;
+  try {
+    server = Bun.serve<ConnData, never>(buildServeArgs(opts.port));
+  } catch (err) {
+    const code = (err as { code?: string }).code ?? "";
+    if (code !== "EADDRINUSE") throw err;
+    console.error(
+      `Port ${opts.port} is already in use. Picking a free port instead — set POCKETAGENTS_PORT to a specific value if you want a stable one.`,
+    );
+    server = Bun.serve<ConnData, never>(buildServeArgs(0));
+  }
+
+  function buildServeArgs(
+    port: number,
+  ): Parameters<typeof Bun.serve<ConnData, never>>[0] {
+    return {
+    port,
     async fetch(req, srv) {
       const url = new URL(req.url);
       if (url.pathname === "/health") {
@@ -382,11 +404,18 @@ export function startServer(opts: {
         }
       },
     },
-  });
+    };
+  }
 
+  // server.port reflects what we actually bound to. When port=0 the OS picks,
+  // and Bun exposes the chosen number here. Everything downstream (tunnel,
+  // QR, dashboard URL) reads from this so the wished-for opts.port never
+  // gets used after the bind. Cast: Bun's types mark port as optional even
+  // though it's always set after a successful bind.
+  const boundPort = server.port ?? opts.port;
   return {
-    port: opts.port,
-    url: `http://localhost:${opts.port}`,
+    port: boundPort,
+    url: `http://localhost:${boundPort}`,
     stop: () => server.stop(true),
   };
 }
