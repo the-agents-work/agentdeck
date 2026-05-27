@@ -172,134 +172,8 @@
          Drops the phone-frame look entirely. Sidebar becomes
          persistent on the left, main fills the rest.
          ============================================================ */
-      @media (min-width: 1024px) {
-        html,
-        body {
-          height: 100dvh;
-        }
-        body {
-          background: var(--bg-page);
-          align-items: stretch;
-          padding: 0;
-        }
-        #app {
-          flex-direction: row;
-          width: 100vw;
-          max-width: none;
-          height: 100dvh;
-          max-height: none;
-          margin: 0;
-          border: none;
-          border-radius: 0;
-          box-shadow: none;
-        }
-        /* Sidebar: persistent, no transform-based drawer animation. */
-        .sidebar {
-          position: relative;
-          transform: none !important;
-          width: 280px;
-          flex-shrink: 0;
-          border-right: 1px solid var(--border-soft);
-          box-shadow: none !important;
-          padding-top: 0;
-        }
-        /* Hide drawer-specific affordances on desktop. */
-        .sidebar-close,
-        .menu-btn,
-        .backdrop {
-          display: none !important;
-        }
-        /* Main fills remaining space. */
-        .main {
-          flex: 1;
-          min-width: 0;
-          background: var(--bg-page);
-        }
-        .main-header {
-          padding: 18px 32px;
-          background: transparent;
-          border-bottom: none;
-          min-height: 64px;
-        }
-        .main-header h2 {
-          font-size: 15.5px;
-        }
-        /* Hero: full breathing room, bigger headline, wider composer. */
-        .empty-hero {
-          justify-content: center;
-          padding: 40px 32px 56px;
-          gap: 18px;
-        }
-        .empty-hero h1 {
-          font-size: 42px;
-          max-width: 20ch;
-        }
-        .hero-sub {
-          font-size: 16px;
-        }
-        .workspace-card {
-          max-width: 640px;
-        }
-        .hero-composer {
-          max-width: 720px;
-          padding: 14px 14px 14px 18px;
-        }
-        .hero-composer textarea {
-          font-size: 16px;
-        }
-        .suggestions {
-          max-width: 720px;
-          gap: 10px;
-          margin-top: 14px;
-        }
-        .pill {
-          font-size: 13.5px;
-          padding: 10px 18px;
-        }
-        /* Bottom composer in active chat — also wider, centered. */
-        .input-bar {
-          padding: 16px 32px;
-        }
-        .input-shell {
-          max-width: 880px;
-          margin: 0 auto;
-        }
-        .messages {
-          padding: 24px 32px 32px;
-          max-width: 880px;
-          margin: 0 auto;
-          width: 100%;
-        }
-        .bubble {
-          max-width: 78%;
-        }
-        .bubble.assistant {
-          max-width: 100%;
-        }
-        .context-pill-row {
-          max-width: 880px;
-          margin: 0 auto;
-        }
-        /* Workspace chip in header — slightly bigger, easier click target. */
-        .ws-chip {
-          font-size: 13px;
-          padding: 7px 14px;
-          max-width: 220px;
-        }
-        /* Picker modal: bottom-sheet stays but narrower + centered on big
-           screen, since the sidebar already covers most folder needs. */
-        .modal-backdrop {
-          position: fixed;
-          align-items: center;
-          justify-content: center;
-        }
-        .modal {
-          width: 480px;
-          max-height: 80vh;
-          border-radius: 16px;
-          padding-bottom: 18px;
-        }
-      }
+      /* Desktop @media block moved to bottom of stylesheet (after all base
+         rules) so per-element overrides win specificity. See line ≈1900+. */
 
       /* Even-wider screen — pad messages so a long chat doesn't stretch
          to readability-breaking line lengths. */
@@ -847,6 +721,26 @@
         padding: 4px 14px 0;
         display: flex;
         justify-content: center;
+      }
+
+      /* Connection-lost banner. Shown when WS is "closed" or "auth_failed"
+         for more than a couple seconds — tunnel URLs change on every CLI
+         restart, so the most common cause is a stale URL in this tab. */
+      .conn-banner {
+        background: rgba(239, 68, 68, 0.12);
+        color: #fca5a5;
+        border-bottom: 1px solid rgba(239, 68, 68, 0.25);
+        padding: 10px 16px;
+        font-size: 13px;
+        text-align: center;
+        line-height: 1.4;
+      }
+      .conn-banner code {
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        background: rgba(255, 255, 255, 0.08);
+        padding: 1px 5px;
+        border-radius: 4px;
+        font-size: 12px;
       }
       .context-pill {
         font-size: 11.5px;
@@ -1485,6 +1379,145 @@
       }
 
       /* ============================================================
+         Desktop (≥1024px) — full-screen 3-pane workspace.
+         Placed at the END of the stylesheet so per-element overrides win
+         specificity over the mobile-first base rules above.
+         ============================================================ */
+      @media (min-width: 1024px) {
+        html,
+        body {
+          height: 100dvh;
+        }
+        body {
+          background: var(--bg-page);
+          align-items: stretch;
+          padding: 0;
+        }
+        #app {
+          flex-direction: row;
+          width: 100vw;
+          max-width: none;
+          height: 100dvh;
+          max-height: none;
+          margin: 0;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        /* Sidebar: persistent, no transform-based drawer animation. */
+        .sidebar {
+          position: relative;
+          transform: none;
+          width: 280px;
+          flex-shrink: 0;
+          border-right: 1px solid var(--border-soft);
+          box-shadow: none;
+          padding-top: 0;
+        }
+        /* Hide drawer-specific affordances on desktop. */
+        .sidebar-close,
+        .menu-btn,
+        .backdrop {
+          display: none;
+        }
+        /* Main fills remaining space. */
+        .main {
+          flex: 1;
+          min-width: 0;
+          background: var(--bg-page);
+        }
+        .main-header {
+          padding: 18px 32px;
+          background: transparent;
+          border-bottom: none;
+          min-height: 64px;
+        }
+        .main-header h2 {
+          font-size: 15.5px;
+        }
+        /* Hero: full breathing room, bigger headline, wider composer. */
+        .empty-hero {
+          justify-content: center;
+          padding: 40px 32px 56px;
+          gap: 18px;
+        }
+        .empty-hero h1 {
+          font-size: 42px;
+          max-width: 20ch;
+        }
+        .hero-sub {
+          font-size: 16px;
+        }
+        .workspace-card {
+          max-width: 640px;
+        }
+        .hero-composer {
+          max-width: 720px;
+          padding: 14px 14px 14px 18px;
+        }
+        .hero-composer textarea {
+          font-size: 16px;
+        }
+        .suggestions {
+          max-width: 720px;
+          gap: 10px;
+          margin-top: 14px;
+        }
+        .pill {
+          font-size: 13.5px;
+          padding: 10px 18px;
+        }
+        /* Bottom composer in active chat — also wider, centered. */
+        .input-bar {
+          padding: 16px 32px;
+        }
+        .input-shell {
+          max-width: 880px;
+          margin: 0 auto;
+        }
+        .messages {
+          padding: 24px 32px 32px;
+          max-width: 880px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        .bubble {
+          max-width: 78%;
+        }
+        .bubble.assistant {
+          max-width: 100%;
+        }
+        .context-pill-row {
+          max-width: 880px;
+          margin: 0 auto;
+        }
+        /* Workspace chip in header — slightly bigger, easier click target. */
+        .ws-chip {
+          font-size: 13px;
+          padding: 7px 14px;
+          max-width: 220px;
+        }
+        /* Picker modal: centered, narrower (sidebar already covers most
+           folder needs). */
+        .modal-backdrop {
+          position: fixed;
+          align-items: center;
+          justify-content: center;
+        }
+        .modal {
+          width: 520px;
+          max-width: 90vw;
+          max-height: 80vh;
+          border-radius: 18px;
+          padding: 22px 18px 18px;
+          gap: 14px;
+        }
+        .modal-grabber {
+          display: none;
+        }
+      }
+
+      /* ============================================================
          PIN gate
          ============================================================ */
       .pin-screen {
@@ -1770,10 +1803,10 @@
         if (!cwd) return null;
         const match = projects?.find((p) => p.path === cwd);
         if (match) return match.name;
-        // Fallback: last path segment so an ad-hoc cwd still reads as something
-        // meaningful instead of a long absolute path.
-        const parts = cwd.split("/").filter(Boolean);
-        return parts[parts.length - 1] ?? null;
+        // Fallback: basenameOf handles the bare-home-dir special case so a
+        // session that was picked via the "Home" Quick row shows up as
+        // "Home" rather than the user's macOS username.
+        return basenameOf(cwd) || null;
       }
 
       /** "Today, 11:29 AM" / "Yesterday, 6:14 PM" / "May 24, 11:00 AM". */
@@ -1823,6 +1856,10 @@
         const [projects, setProjects] = useState([]);
         const [projectsError, setProjectsError] = useState(null);
         const [discovered, setDiscovered] = useState([]);
+        // Tracks whether the FIRST session.list reply has arrived. Without
+        // this the sidebar briefly flashes "No chats yet" before the WS
+        // round-trip completes — looks like a bug even when nothing is wrong.
+        const [sessionsLoaded, setSessionsLoaded] = useState(false);
         // The folder the agent will operate on for new chats. Persisted in
         // localStorage so the user keeps their context across page reloads.
         // null = no workspace connected → empty hero shows the Connect CTA.
@@ -2215,6 +2252,17 @@
             onClose=${() => setSidebarOpen(false)}
           />
           <main class="main">
+            ${(wsState === "closed" || wsState === "auth_failed") &&
+            html`<div class="conn-banner">
+              ${wsState === "auth_failed"
+                ? html`Auth failed: ${wsError ?? "token invalid"}.
+                    The dashboard URL was rotated on the laptop. Open the new
+                    URL printed by <code>pocket-agents</code>.`
+                : html`Connection lost — trying to reconnect…
+                    The tunnel URL changes when
+                    <code>pocket-agents</code> restarts, so if this persists,
+                    grab the latest URL from your terminal and refresh.`}
+            </div>`}
             <${MainArea}
               chat=${chat}
               session=${sessions.find((s) => s.id === activeId)}
