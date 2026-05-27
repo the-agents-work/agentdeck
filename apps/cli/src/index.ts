@@ -98,8 +98,12 @@ const pin = loadPin();
 console.log(`Pocket Agents v${VERSION}`);
 console.log(`Server name: ${serverName}`);
 console.log(`Config dir:  ${process.env.POCKETAGENTS_HOME ?? "~/.pocket-agents"}`);
+// Print full PIN on boot. This leaks the PIN into terminal scrollback /
+// screenshots — fine for the "personal laptop, my own eyes" use case this
+// CLI is built for. If you ever share-screen on this terminal, run
+// `pocket-agents --clear-pin` first or scroll past this line.
 console.log(
-  `PIN gate:    ${pin ? "ENABLED (dashboard will prompt)" : "off (use --gen-pin or --set-pin to enable)"}`,
+  `PIN gate:    ${pin ? `ENABLED · pin = ${pin}` : "off (use --gen-pin or --set-pin to enable)"}`,
 );
 console.log("");
 
