@@ -148,9 +148,11 @@
         background: var(--bg-panel);
         overflow: hidden;
       }
-      @media (min-width: 720px) {
-        /* Desktop: app sits in the middle with a subtle frame so it reads as
-           "premium phone preview". Outside is even darker than the panel. */
+      /* ============================================================
+         Tablet (720px) — keep the "premium phone preview" frame
+         but bump the panel a bit and lighten the surrounding void.
+         ============================================================ */
+      @media (min-width: 720px) and (max-width: 1023px) {
         body {
           background: var(--bg-page);
           padding: 0;
@@ -162,6 +164,150 @@
           border-radius: 28px;
           border: 1px solid var(--border-soft);
           box-shadow: 0 30px 80px rgba(0, 0, 0, 0.55);
+        }
+      }
+
+      /* ============================================================
+         Desktop (≥1024px) — full-screen 3-pane workspace.
+         Drops the phone-frame look entirely. Sidebar becomes
+         persistent on the left, main fills the rest.
+         ============================================================ */
+      @media (min-width: 1024px) {
+        html,
+        body {
+          height: 100dvh;
+        }
+        body {
+          background: var(--bg-page);
+          align-items: stretch;
+          padding: 0;
+        }
+        #app {
+          flex-direction: row;
+          width: 100vw;
+          max-width: none;
+          height: 100dvh;
+          max-height: none;
+          margin: 0;
+          border: none;
+          border-radius: 0;
+          box-shadow: none;
+        }
+        /* Sidebar: persistent, no transform-based drawer animation. */
+        .sidebar {
+          position: relative;
+          transform: none !important;
+          width: 280px;
+          flex-shrink: 0;
+          border-right: 1px solid var(--border-soft);
+          box-shadow: none !important;
+          padding-top: 0;
+        }
+        /* Hide drawer-specific affordances on desktop. */
+        .sidebar-close,
+        .menu-btn,
+        .backdrop {
+          display: none !important;
+        }
+        /* Main fills remaining space. */
+        .main {
+          flex: 1;
+          min-width: 0;
+          background: var(--bg-page);
+        }
+        .main-header {
+          padding: 18px 32px;
+          background: transparent;
+          border-bottom: none;
+          min-height: 64px;
+        }
+        .main-header h2 {
+          font-size: 15.5px;
+        }
+        /* Hero: full breathing room, bigger headline, wider composer. */
+        .empty-hero {
+          justify-content: center;
+          padding: 40px 32px 56px;
+          gap: 18px;
+        }
+        .empty-hero h1 {
+          font-size: 42px;
+          max-width: 20ch;
+        }
+        .hero-sub {
+          font-size: 16px;
+        }
+        .workspace-card {
+          max-width: 640px;
+        }
+        .hero-composer {
+          max-width: 720px;
+          padding: 14px 14px 14px 18px;
+        }
+        .hero-composer textarea {
+          font-size: 16px;
+        }
+        .suggestions {
+          max-width: 720px;
+          gap: 10px;
+          margin-top: 14px;
+        }
+        .pill {
+          font-size: 13.5px;
+          padding: 10px 18px;
+        }
+        /* Bottom composer in active chat — also wider, centered. */
+        .input-bar {
+          padding: 16px 32px;
+        }
+        .input-shell {
+          max-width: 880px;
+          margin: 0 auto;
+        }
+        .messages {
+          padding: 24px 32px 32px;
+          max-width: 880px;
+          margin: 0 auto;
+          width: 100%;
+        }
+        .bubble {
+          max-width: 78%;
+        }
+        .bubble.assistant {
+          max-width: 100%;
+        }
+        .context-pill-row {
+          max-width: 880px;
+          margin: 0 auto;
+        }
+        /* Workspace chip in header — slightly bigger, easier click target. */
+        .ws-chip {
+          font-size: 13px;
+          padding: 7px 14px;
+          max-width: 220px;
+        }
+        /* Picker modal: bottom-sheet stays but narrower + centered on big
+           screen, since the sidebar already covers most folder needs. */
+        .modal-backdrop {
+          position: fixed;
+          align-items: center;
+          justify-content: center;
+        }
+        .modal {
+          width: 480px;
+          max-height: 80vh;
+          border-radius: 16px;
+          padding-bottom: 18px;
+        }
+      }
+
+      /* Even-wider screen — pad messages so a long chat doesn't stretch
+         to readability-breaking line lengths. */
+      @media (min-width: 1440px) {
+        .messages,
+        .input-shell,
+        .context-pill-row {
+          max-width: 920px;
         }
       }
 
