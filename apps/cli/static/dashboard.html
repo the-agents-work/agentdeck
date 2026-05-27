@@ -591,6 +591,82 @@
         color: var(--accent);
       }
 
+      /* "Continue on CLI" — surfaces the `claude --resume <id>` (or codex
+         equivalent) command so the user can hop into the same conversation
+         from their terminal. Lives in the chat header; opens an inline
+         panel below it instead of a modal so it's quick to dismiss. */
+      .cli-resume-btn {
+        flex-shrink: 0;
+        font-size: 11px;
+        font-weight: 500;
+        padding: 5px 10px;
+        border-radius: 8px;
+        background: var(--bg-card);
+        color: var(--text-muted);
+        border: 1px solid var(--border-soft);
+        transition: background 0.12s ease, color 0.12s ease;
+        cursor: pointer;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+      }
+      .cli-resume-btn:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-main);
+      }
+      .cli-resume-btn[aria-expanded="true"] {
+        background: var(--accent-soft);
+        color: var(--accent);
+        border-color: transparent;
+      }
+      .cli-resume-panel {
+        border-bottom: 1px solid var(--border-soft);
+        background: var(--bg-card);
+        padding: 10px 14px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
+      .cli-resume-panel .cli-resume-hint {
+        font-size: 11.5px;
+        color: var(--text-faint);
+        line-height: 1.4;
+      }
+      .cli-resume-panel pre {
+        margin: 0;
+        padding: 9px 11px;
+        background: var(--bg-panel);
+        border: 1px solid var(--border-soft);
+        border-radius: 8px;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 12px;
+        color: var(--text-main);
+        white-space: pre-wrap;
+        word-break: break-all;
+      }
+      .cli-resume-actions {
+        display: flex;
+        gap: 6px;
+        justify-content: flex-end;
+      }
+      .cli-resume-actions button {
+        font-size: 11px;
+        padding: 4px 10px;
+        border-radius: 6px;
+        background: var(--bg-panel);
+        color: var(--text-muted);
+        border: 1px solid var(--border-soft);
+        cursor: pointer;
+      }
+      .cli-resume-actions button:hover {
+        color: var(--text-main);
+        background: var(--bg-card-hover);
+      }
+      .cli-resume-actions button.copied {
+        color: var(--accent);
+        border-color: var(--accent-soft);
+      }
+
       /* ============================================================
          Empty hero — Manus-style "What can I help you with?"
          ============================================================ */
@@ -1934,6 +2010,20 @@
         return agent === "codex" ? "Codex" : "Claude";
       }
 
+      /** Compose the shell command the user pastes into their laptop terminal
+       *  to resume this exact chat in the underlying CLI. cwd is wrapped in
+       *  double quotes (handles spaces in folder names — common on macOS).
+       *  Skips the `cd` clause if cwd is missing or evaluates to "~" so the
+       *  output stays minimal in those cases. */
+      function buildCliResumeCmd(agent, cwd, nativeId) {
+        const resume =
+          agent === "codex"
+            ? `codex resume ${nativeId}`
+            : `claude --resume ${nativeId}`;
+        if (!cwd || cwd === "~") return resume;
+        return `cd "${cwd}" && ${resume}`;
+      }
+
       /**
        * Strip the "· timestamp" suffix the server appends to default session
        * titles. We don't touch the DB (no backend change), we just render a
@@ -3081,6 +3171,28 @@
             ? formatDuration(chat.lastDurationMs)
             : null;
 
+        // "Continue on CLI" — only meaningful once the underlying agent SDK
+        // has assigned a session id (set on the FIRST completed run). Until
+        // then there's nothing to resume against, so we hide the affordance.
+        const [cliResumeOpen, setCliResumeOpen] = useState(false);
+        const [cliResumeCopied, setCliResumeCopied] = useState(false);
+        const nativeId = session?.nativeSessionId ?? null;
+        const cliResumeCmd = nativeId
+          ? buildCliResumeCmd(currentAgent, session?.cwd, nativeId)
+          : null;
+        async function copyCliResume() {
+          if (!cliResumeCmd) return;
+          try {
+            await navigator.clipboard.writeText(cliResumeCmd);
+            setCliResumeCopied(true);
+            setTimeout(() => setCliResumeCopied(false), 1500);
+          } catch {
+            // Clipboard API can fail on http:// origins or inside iframes —
+            // surface the command anyway so the user can hand-select it.
+            setCliResumeCopied(false);
+          }
+        }
+
         return html`
           <header class="main-header">
             <button
@@ -3113,7 +3225,33 @@
             >`}
             ${chat.status === "error" &&
             html`<span class="badge" style="color: var(--error);">error</span>`}
+            ${cliResumeCmd &&
+            html`<button
+              class="cli-resume-btn"
+              aria-expanded=${cliResumeOpen}
+              title="Continue this chat in your laptop terminal"
+              onClick=${() => setCliResumeOpen((v) => !v)}
+            >
+              ⌘ Continue on CLI
+            </button>`}
           </header>
+          ${cliResumeOpen && cliResumeCmd &&
+          html`<div class="cli-resume-panel">
+            <div class="cli-resume-hint">
+              Paste this in your laptop terminal to resume the exact same
+              ${agentLabel(currentAgent)} session — same context, same memory.
+            </div>
+            <pre>${cliResumeCmd}</pre>
+            <div class="cli-resume-actions">
+              <button
+                class=${cliResumeCopied ? "copied" : ""}
+                onClick=${copyCliResume}
+              >
+                ${cliResumeCopied ? "✓ Copied" : "Copy"}
+              </button>
+              <button onClick=${() => setCliResumeOpen(false)}>Close</button>
+            </div>
+          </div>`}
           <${MessageList} messages=${chat.messages} status=${chat.status} />
           ${running &&
           html` <div class="status-bar">

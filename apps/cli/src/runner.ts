@@ -162,6 +162,11 @@ export class Runner {
       const status: SessionStatus = result.ok ? "done" : "error";
       this.store.setStatus(sessionId, status);
       this.emit({ type: "status", sessionId, status, durationMs: result.durationMs, runStartedAt: null });
+      // Re-emit the full summary so subscribers (dashboard) pick up the
+      // freshly-captured nativeSessionId — used by the "Continue on CLI"
+      // affordance to render the right `claude --resume <id>` command.
+      const summary = this.store.getSummary(sessionId);
+      if (summary) this.emit({ type: "session_updated", session: summary });
     }
   }
 }

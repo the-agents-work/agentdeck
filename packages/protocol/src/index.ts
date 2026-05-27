@@ -23,6 +23,12 @@ export type SessionSummary = {
   messageCount: number;
   /** Working dir the agent was spawned in. May be null for very old rows. */
   cwd?: string | null;
+  /** Underlying agent SDK's session ID, set after the FIRST run completes
+   *  (claude-agent-sdk session_id, codex's session UUID). Lets the dashboard
+   *  surface a "Continue in CLI" affordance so the user can hop into the
+   *  same conversation from their terminal (`claude --resume <id>`). Null
+   *  for chats that have never produced a model response. */
+  nativeSessionId?: string | null;
 };
 
 /** A saved working directory the user can quickly spawn a chat into. */

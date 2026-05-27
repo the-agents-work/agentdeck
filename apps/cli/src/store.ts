@@ -78,7 +78,9 @@ export class SessionStore {
   listSessions(): SessionSummary[] {
     const rows = this.db
       .prepare(
-        `SELECT s.id, s.title, s.agent, s.status, s.cwd, s.created_at AS createdAt,
+        `SELECT s.id, s.title, s.agent, s.status, s.cwd,
+                s.native_session_id AS nativeSessionId,
+                s.created_at AS createdAt,
                 s.last_message_at AS lastMessageAt,
                 (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS messageCount
          FROM sessions s
@@ -169,7 +171,9 @@ export class SessionStore {
   getSummary(id: string): SessionSummary | null {
     const row = this.db
       .prepare(
-        `SELECT s.id, s.title, s.agent, s.status, s.cwd, s.created_at AS createdAt,
+        `SELECT s.id, s.title, s.agent, s.status, s.cwd,
+                s.native_session_id AS nativeSessionId,
+                s.created_at AS createdAt,
                 s.last_message_at AS lastMessageAt,
                 (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS messageCount
          FROM sessions s WHERE s.id = ?`,
