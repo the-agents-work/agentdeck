@@ -96,6 +96,7 @@ export type PocketAgentsEvent =
   | { type: "pin.fail"; reason: string; attemptsRemaining: number }
   | { type: "session.list"; sessions: SessionSummary[] }
   | { type: "session.created"; session: SessionSummary }
+  | { type: "session.updated"; session: SessionSummary }
   | { type: "session.deleted"; sessionId: string }
   | {
       type: "session.history";
