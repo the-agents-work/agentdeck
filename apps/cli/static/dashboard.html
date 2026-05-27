@@ -1160,6 +1160,25 @@
         text-transform: uppercase;
         letter-spacing: 0.08em;
         color: var(--accent);
+      }
+      .tool-card.collapsible .tool-label {
+        cursor: pointer;
+        user-select: none;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+      }
+      .tool-card.collapsible .tool-label::before {
+        content: "▸";
+        display: inline-block;
+        font-size: 10px;
+        transition: transform 0.15s ease;
+        color: var(--text-faint);
+      }
+      .tool-card.collapsible.open .tool-label::before {
+        transform: rotate(90deg);
+      }
+      .tool-card.open .tool-label {
         margin-bottom: 6px;
       }
       .tool-card.error .tool-label {
