@@ -2195,12 +2195,14 @@
                   sessionId: evt.sessionId,
                   messages: evt.messages,
                   status: evt.status,
-                  // We don't have the original startedAt over the wire (the
-                  // server only emits durationMs at completion), so the timer
-                  // starts ticking from "now" when we land on an already-
-                  // running session. Good enough — it just shows "since you
-                  // opened this tab" rather than absolute run time.
-                  runStartedAt: evt.status === "running" ? Date.now() : null,
+                  // Server now sends the true `runStartedAt` so the elapsed-
+                  // time counter survives chat switches and reloads. Fall
+                  // back to Date.now() only for legacy servers that omit
+                  // the field (defensive — should not happen post-fix).
+                  runStartedAt:
+                    evt.status === "running"
+                      ? evt.runStartedAt ?? Date.now()
+                      : null,
                   lastDurationMs: null,
                 });
                 break;
@@ -2235,15 +2237,15 @@
               case "agent.status":
                 setChat((prev) => {
                   if (!prev || prev.sessionId !== evt.sessionId) return prev;
-                  // Track when this run started so we can render an
-                  // elapsed-time counter, and remember the final durationMs
-                  // emitted by the server so the chip survives reloads.
+                  // Prefer the wire-supplied runStartedAt (true server clock)
+                  // when running. Falls back to existing state, then Date.now()
+                  // for older servers. Cleared on any non-running status.
                   const runStartedAt =
-                    evt.status === "running" && prev.status !== "running"
-                      ? Date.now()
-                      : evt.status === "running"
-                        ? (prev.runStartedAt ?? Date.now())
-                        : null;
+                    evt.status === "running"
+                      ? evt.runStartedAt ??
+                        prev.runStartedAt ??
+                        Date.now()
+                      : null;
                   const lastDurationMs =
                     typeof evt.durationMs === "number"
                       ? evt.durationMs
@@ -3130,6 +3132,7 @@
             </span>
           </div>`}
           <${InputBar}
+            key=${chat.sessionId}
             agent=${currentAgent}
             workspaceName=${projectLabelFor(session, projects)}
             disabled=${chat.status === "running"}

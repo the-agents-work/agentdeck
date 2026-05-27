@@ -123,9 +123,22 @@ export type PocketAgentsEvent =
       sessionId: string;
       messages: AgentMessage[];
       status: SessionStatus;
+      /** ms epoch when the in-flight run started. Only present when
+       *  status === "running"; lets the dashboard resume a faithful
+       *  elapsed-time counter instead of restarting from 0 on chat switch. */
+      runStartedAt?: number | null;
     }
   | { type: "agent.message"; sessionId: string; message: AgentMessage }
-  | { type: "agent.status"; sessionId: string; status: SessionStatus; durationMs?: number }
+  | {
+      type: "agent.status";
+      sessionId: string;
+      status: SessionStatus;
+      durationMs?: number;
+      /** ms epoch when this run started. Set on the status=running event so
+       *  the dashboard timer ticks from the true start rather than from
+       *  whenever the client happened to receive the frame. */
+      runStartedAt?: number | null;
+    }
   | { type: "agent.error"; sessionId: string; error: string }
   | { type: "projects.list"; projects: Project[] }
   | { type: "projects.error"; reason: string }

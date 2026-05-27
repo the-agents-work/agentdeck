@@ -73,6 +73,7 @@ export function startServer(opts: {
         sessionId: event.sessionId,
         status: event.status,
         durationMs: event.durationMs,
+        runStartedAt: event.runStartedAt,
       };
     } else if (event.type === "session_updated") {
       wire = { type: "session.updated", session: event.session };
@@ -309,6 +310,10 @@ export function startServer(opts: {
               sessionId: session.id,
               messages: store.getMessages(session.id),
               status: session.status,
+              runStartedAt:
+                session.status === "running"
+                  ? runner.getRunStartedAt(session.id)
+                  : null,
             });
           }
 

@@ -9,7 +9,13 @@ import { SessionStore } from "./store.ts";
 
 type Subscriber = (event:
   | { type: "message"; sessionId: string; message: AgentMessage }
-  | { type: "status"; sessionId: string; status: SessionStatus; durationMs?: number }
+  | {
+      type: "status";
+      sessionId: string;
+      status: SessionStatus;
+      durationMs?: number;
+      runStartedAt?: number | null;
+    }
   | { type: "session_updated"; session: SessionSummary }
   | { type: "error"; sessionId: string; error: string }) => void;
 
@@ -29,8 +35,19 @@ function deriveTitle(prompt: string): string {
 export class Runner {
   private readonly subs = new Set<Subscriber>();
   private readonly active = new Map<string, AbortController>();
+  /** Wall-clock start of each in-flight run. Cleared when status transitions
+   *  to done/error. Lives in memory only — if the process restarts mid-run,
+   *  SessionStore's boot cleanup demotes the row to status=error so this map
+   *  never needs to outlive the process. */
+  private readonly runStartedAt = new Map<string, number>();
 
   constructor(private readonly store: SessionStore) {}
+
+  /** Read the start time of an in-flight run (for session.history hydration).
+   *  Returns null if no run is active for this session. */
+  getRunStartedAt(sessionId: string): number | null {
+    return this.runStartedAt.get(sessionId) ?? null;
+  }
 
   subscribe(fn: Subscriber): () => void {
     this.subs.add(fn);
@@ -104,8 +121,10 @@ export class Runner {
 
     const ctrl = new AbortController();
     this.active.set(sessionId, ctrl);
+    const startedAt = Date.now();
+    this.runStartedAt.set(sessionId, startedAt);
     this.store.setStatus(sessionId, "running");
-    this.emit({ type: "status", sessionId, status: "running" });
+    this.emit({ type: "status", sessionId, status: "running", runStartedAt: startedAt });
 
     const gen = adapter.run({
       prompt,
@@ -135,13 +154,14 @@ export class Runner {
       this.store.setStatus(sessionId, "error");
     } finally {
       this.active.delete(sessionId);
+      this.runStartedAt.delete(sessionId);
     }
 
     if (result) {
       this.store.setNativeSessionId(sessionId, result.nativeSessionId);
       const status: SessionStatus = result.ok ? "done" : "error";
       this.store.setStatus(sessionId, status);
-      this.emit({ type: "status", sessionId, status, durationMs: result.durationMs });
+      this.emit({ type: "status", sessionId, status, durationMs: result.durationMs, runStartedAt: null });
     }
   }
 }

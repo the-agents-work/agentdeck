@@ -1,6 +1,7 @@
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentMessage } from "@pocket-agents/protocol";
 import type { AgentAdapter, AdapterRunOptions, AdapterRunResult } from "./types.js";
+import { loadMergedMcpServers } from "./claude-mcp.js";
 
 /**
  * Claude Code adapter — wraps @anthropic-ai/claude-agent-sdk's `query()`.
@@ -31,9 +32,20 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     const permissionMode =
       process.env.POCKETAGENTS_PERMISSION_MODE || "bypassPermissions";
 
+    // Merge global + project MCP servers from ~/.claude.json. Without this
+    // pass-through, the SDK's per-cwd config resolution clobbers globally-
+    // configured servers (taw-mem-cloud, shipkit, ...) the moment the cwd
+    // has an explicit `mcpServers: {}` entry in the projects map — which
+    // every cwd accumulates after one `claude` run. Result: tools the user
+    // sees in the terminal vanish in the dashboard. Skip the option entirely
+    // when nothing merged, so the SDK still does its own default behavior.
+    const mergedMcp = loadMergedMcpServers(opts.cwd);
+    const hasMcp = Object.keys(mergedMcp).length > 0;
+
     const sdkOptions: Record<string, unknown> = {
       cwd: opts.cwd,
       permissionMode,
+      ...(hasMcp ? { mcpServers: mergedMcp } : {}),
       // Extended thinking — Claude's chain-of-thought. Opus 4.6+ defaults to
       // adaptive, but we set it explicitly so behavior is stable across model
       // upgrades. `display: 'summarized'` is required: without it the SDK
@@ -86,6 +98,21 @@ export class ClaudeCodeAdapter implements AgentAdapter {
         // can contain multiple content blocks (thinking + text + tool_use),
         // each of which we want to surface as its own row in the dashboard.
         for (const msg of normalize(sdkMsg)) yield msg;
+
+        // The SDK contract says a `result` frame is the terminal frame of a
+        // turn. In practice the upstream iterator sometimes doesn't close
+        // after it (observed when an MCP server is mid-handshake or a tool
+        // is still negotiating shutdown), which would leave us stuck in
+        // this for-await forever — dashboard shows "WORKING" indefinitely
+        // even though the model has clearly signaled end-of-turn. Break
+        // out the moment we see `result` so the runner can emit status=done.
+        const term = sdkMsg as { type?: string; subtype?: string; is_error?: boolean };
+        if (term.type === "result") {
+          if (term.is_error === true || term.subtype === "error_during_execution") {
+            ok = false;
+          }
+          break;
+        }
       }
     } catch (err) {
       ok = false;
