@@ -156,6 +156,21 @@ export class SessionStore {
     this.db.prepare(`UPDATE sessions SET title = ? WHERE id = ?`).run(title, sessionId);
   }
 
+  /** Return the wire-shape SessionSummary for a single id, or null. Same
+   *  column set as listSessions() so subscribers can re-emit on update. */
+  getSummary(id: string): SessionSummary | null {
+    const row = this.db
+      .prepare(
+        `SELECT s.id, s.title, s.agent, s.status, s.cwd, s.created_at AS createdAt,
+                s.last_message_at AS lastMessageAt,
+                (SELECT COUNT(*) FROM messages m WHERE m.session_id = s.id) AS messageCount
+         FROM sessions s WHERE s.id = ?`,
+      )
+      .get(id) as (SessionSummary & { agent: string; status: string }) | null;
+    if (!row) return null;
+    return { ...row, agent: row.agent as AgentName, status: row.status as SessionStatus };
+  }
+
   deleteSession(id: string): void {
     this.db.prepare(`DELETE FROM sessions WHERE id = ?`).run(id);
   }

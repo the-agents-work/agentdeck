@@ -1,11 +1,20 @@
-import type { AgentMessage, SessionStatus } from "@pocket-agents/protocol";
+import type { AgentMessage, SessionStatus, SessionSummary } from "@pocket-agents/protocol";
 import { adapters } from "@pocket-agents/adapters";
 import { SessionStore } from "./store.ts";
 
 type Subscriber = (event:
   | { type: "message"; sessionId: string; message: AgentMessage }
   | { type: "status"; sessionId: string; status: SessionStatus; durationMs?: number }
+  | { type: "session_updated"; session: SessionSummary }
   | { type: "error"; sessionId: string; error: string }) => void;
+
+/** Single-line, ≤60-char title for the sidebar derived from the first prompt.
+ *  Mirrors what `claude` CLI shows in its session picker. */
+function deriveTitle(prompt: string): string {
+  const cleaned = prompt.trim().replace(/\s+/g, " ");
+  if (cleaned.length <= 60) return cleaned;
+  return cleaned.slice(0, 60).trimEnd() + "…";
+}
 
 /**
  * Orchestrates an agent run for a session: pulls from adapter, persists
@@ -64,6 +73,18 @@ export class Runner {
     };
     this.store.appendMessage(sessionId, userMsg);
     this.emit({ type: "message", sessionId, message: userMsg });
+
+    // Auto-title from the first prompt, only while the title is still the
+    // server-generated default "New chat · <timestamp>". Idempotent — if the
+    // user (or a future rename API) sets a custom title, we never overwrite.
+    if (/^New chat · /.test(session.title)) {
+      const title = deriveTitle(prompt);
+      if (title) {
+        this.store.setTitle(sessionId, title);
+        const summary = this.store.getSummary(sessionId);
+        if (summary) this.emit({ type: "session_updated", session: summary });
+      }
+    }
 
     const ctrl = new AbortController();
     this.active.set(sessionId, ctrl);

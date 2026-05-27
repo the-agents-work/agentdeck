@@ -74,6 +74,8 @@ export function startServer(opts: {
         status: event.status,
         durationMs: event.durationMs,
       };
+    } else if (event.type === "session_updated") {
+      wire = { type: "session.updated", session: event.session };
     } else {
       wire = {
         type: "agent.error",

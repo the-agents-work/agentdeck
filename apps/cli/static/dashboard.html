@@ -1980,6 +1980,11 @@
                 setSessions(evt.sessions);
                 setSessionsLoaded(true);
                 break;
+              case "session.updated":
+                setSessions((prev) =>
+                  prev.map((s) => (s.id === evt.session.id ? evt.session : s)),
+                );
+                break;
               case "session.created":
                 setSessions((prev) => [
                   evt.session,
