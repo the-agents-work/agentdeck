@@ -43,6 +43,14 @@ export class SessionStore {
 
       CREATE INDEX IF NOT EXISTS idx_messages_session ON messages(session_id, seq);
     `);
+
+    // Orphan cleanup: any session still marked "running" at boot was killed
+    // mid-flight (Ctrl+C, laptop reboot, oom). Without this, the dashboard
+    // would resume them and show a ghost WORKING timer that never advances
+    // — there's no adapter in memory to push messages anymore.
+    this.db
+      .prepare(`UPDATE sessions SET status = 'error' WHERE status = 'running'`)
+      .run();
   }
 
   createSession(opts: { agent: AgentName; title?: string; cwd?: string }): SessionSummary {
