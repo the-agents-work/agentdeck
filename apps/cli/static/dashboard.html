@@ -2351,6 +2351,18 @@
               </div>`}
               ${error && html`<div class="modal-error">${error}</div>`}
               <div class="modal-list">
+                <div class="section-label">Quick</div>
+                <div
+                  class="project-row"
+                  onClick=${() => onPick("")}
+                  role="button"
+                >
+                  <div class="project-icon">🏠</div>
+                  <div class="project-meta">
+                    <div class="project-name">Home</div>
+                    <div class="project-path">~ (default working directory)</div>
+                  </div>
+                </div>
                 ${pinned.length > 0 &&
                 html`<div class="section-label">Pinned</div>`}
                 ${pinned.map(
