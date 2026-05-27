@@ -69,7 +69,11 @@ export class ClaudeCodeAdapter implements AgentAdapter {
           ? buildMultimodalPrompt(opts.prompt, opts.images)
           : opts.prompt;
       const stream = query({
-        prompt: promptInput,
+        // Cast: our hand-rolled multimodal generator yields the right runtime
+        // shape but the SDK's SDKUserMessage union uses Anthropic SDK's
+        // ContentBlockParam, which has too many internal variants to mirror
+        // here. Server-side cap (5 images / 5MB) protects against bad input.
+        prompt: promptInput as Parameters<typeof query>[0]["prompt"],
         options: sdkOptions as Parameters<typeof query>[0]["options"],
       });
 
