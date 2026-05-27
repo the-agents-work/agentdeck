@@ -73,6 +73,7 @@ export type PocketAgentsCommand =
   | { type: "session.resume"; sessionId: string }
   | { type: "session.stop"; sessionId: string }
   | { type: "session.delete"; sessionId: string }
+  | { type: "session.rename"; sessionId: string; title: string }
   | { type: "prompt"; sessionId: string; text: string }
   | { type: "projects.list" }
   | { type: "projects.add"; path: string; name?: string; pinned?: boolean }

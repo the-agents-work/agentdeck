@@ -290,12 +290,50 @@ export function startServer(opts: {
             });
           }
 
-          case "session.delete":
+          case "session.delete": {
             store.deleteSession(cmd.sessionId);
-            return send(ws, {
+            // Broadcast so other devices (phone + laptop browser) drop the
+            // row immediately instead of falling out of sync until reload.
+            const wire = JSON.stringify({
               type: "session.deleted",
               sessionId: cmd.sessionId,
             });
+            for (const s of sockets) {
+              if (s.data.authed && (!pinRequired || s.data.pinVerified)) {
+                s.send(wire);
+              }
+            }
+            return;
+          }
+
+          case "session.rename": {
+            const title = (cmd.title ?? "").trim();
+            if (!title) {
+              return send(ws, {
+                type: "agent.error",
+                sessionId: cmd.sessionId,
+                error: "title is empty",
+              });
+            }
+            // Cap length to keep sidebar layout sane. Matches deriveTitle().
+            const capped = title.length > 80 ? title.slice(0, 80) : title;
+            store.setTitle(cmd.sessionId, capped);
+            const summary = store.getSummary(cmd.sessionId);
+            if (!summary) {
+              return send(ws, {
+                type: "agent.error",
+                sessionId: cmd.sessionId,
+                error: "session not found",
+              });
+            }
+            const wire = JSON.stringify({ type: "session.updated", session: summary });
+            for (const s of sockets) {
+              if (s.data.authed && (!pinRequired || s.data.pinVerified)) {
+                s.send(wire);
+              }
+            }
+            return;
+          }
 
           case "session.stop": {
             const stopped = runner.stop(cmd.sessionId);

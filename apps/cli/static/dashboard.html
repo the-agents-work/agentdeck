@@ -407,6 +407,48 @@
         background: var(--warning);
         animation: pulse 1s infinite;
       }
+      /* Hover-revealed rename/delete on each session row. On touch devices
+         the hover state is never satisfied, so we keep them visible at low
+         opacity instead of hiding them entirely. */
+      .row-actions {
+        display: inline-flex;
+        align-items: center;
+        gap: 2px;
+        margin-left: 4px;
+        flex-shrink: 0;
+        opacity: 0;
+        transition: opacity 0.12s ease;
+      }
+      .session-item:hover .row-actions,
+      .session-item.active .row-actions {
+        opacity: 1;
+      }
+      @media (hover: none) {
+        .row-actions {
+          opacity: 0.55;
+        }
+      }
+      .row-action {
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
+        font-size: 13px;
+        color: var(--text-faint);
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 0.12s ease,
+          color 0.12s ease;
+      }
+      .row-action:hover {
+        background: var(--bg-card-hover);
+        color: var(--text-main);
+      }
+      .row-action.danger:hover {
+        background: rgba(239, 68, 68, 0.14);
+        color: var(--error);
+      }
       .status-dot.error {
         background: var(--error);
       }
@@ -2296,6 +2338,23 @@
             );
           }
         }
+        // Rename: prompt the user with the current title pre-filled. We use
+        // window.prompt to keep the UI surface tiny — works the same on
+        // mobile Safari + desktop without us shipping a custom modal.
+        function renameSession(id, currentTitle) {
+          const next = window.prompt("Rename chat", currentTitle ?? "");
+          if (next === null) return; // user hit Cancel
+          const trimmed = next.trim();
+          if (!trimmed || trimmed === currentTitle) return;
+          send({ type: "session.rename", sessionId: id, title: trimmed });
+        }
+        function deleteSession(id, currentTitle) {
+          const ok = window.confirm(
+            `Delete "${currentTitle ?? "this chat"}"? This removes the conversation history from the laptop.`,
+          );
+          if (!ok) return;
+          send({ type: "session.delete", sessionId: id });
+        }
         function sendPrompt(text) {
           if (!chat) return;
           // Claude Code CLI's interactive slash commands (/help, /clear,
@@ -2346,6 +2405,8 @@
             onCreate=${createSession}
             onSelectAgent=${setSelectedAgent}
             onOpen=${openSession}
+            onRename=${renameSession}
+            onDelete=${deleteSession}
             onUnpair=${unpair}
             onChangeWorkspace=${openWorkspacePicker}
             open=${sidebarOpen}
@@ -2745,6 +2806,8 @@
         onCreate,
         onSelectAgent,
         onOpen,
+        onRename,
+        onDelete,
         onUnpair,
         onChangeWorkspace,
         open,
@@ -2835,6 +2898,32 @@
                           html`<div
                             class=${"status-dot " + s.status}
                           ></div>`}
+                          <div class="row-actions">
+                            <button
+                              class="row-action"
+                              aria-label="Rename chat"
+                              title="Rename"
+                              onClick=${(e) => {
+                                // stopPropagation so the row's onClick (open
+                                // the chat) doesn't also fire.
+                                e.stopPropagation();
+                                onRename(s.id, prettyTitle(s));
+                              }}
+                            >
+                              ✎
+                            </button>
+                            <button
+                              class="row-action danger"
+                              aria-label="Delete chat"
+                              title="Delete"
+                              onClick=${(e) => {
+                                e.stopPropagation();
+                                onDelete(s.id, prettyTitle(s));
+                              }}
+                            >
+                              🗑
+                            </button>
+                          </div>
                         </div>
                       `,
                     )}`}
