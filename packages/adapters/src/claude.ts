@@ -59,9 +59,17 @@ export class ClaudeCodeAdapter implements AgentAdapter {
     }
 
     try {
-      // The SDK's query() returns an AsyncIterable of SDKMessage.
+      // For text-only turns we can pass a plain string — the SDK builds the
+      // user message internally. For turns with images we need to construct
+      // a full multimodal user message (a TextBlock + N ImageBlocks) and
+      // hand it to the SDK as an async iterable, which is what its
+      // streaming-input mode expects.
+      const promptInput =
+        opts.images && opts.images.length > 0
+          ? buildMultimodalPrompt(opts.prompt, opts.images)
+          : opts.prompt;
       const stream = query({
-        prompt: opts.prompt,
+        prompt: promptInput,
         options: sdkOptions as Parameters<typeof query>[0]["options"],
       });
 
@@ -90,6 +98,34 @@ export class ClaudeCodeAdapter implements AgentAdapter {
       ok,
     };
   }
+}
+
+/** Build an AsyncIterable<SDKUserMessage> with a single user message that
+ *  carries both the prompt text and inline image blocks. The SDK accepts
+ *  this in place of a plain string prompt for multimodal turns. */
+async function* buildMultimodalPrompt(
+  text: string,
+  images: ReadonlyArray<{ mime: string; data_base64: string }>,
+) {
+  const content: Array<unknown> = [];
+  if (text && text.trim().length > 0) {
+    content.push({ type: "text", text });
+  }
+  for (const img of images) {
+    content.push({
+      type: "image",
+      source: {
+        type: "base64",
+        media_type: img.mime,
+        data: img.data_base64,
+      },
+    });
+  }
+  yield {
+    type: "user" as const,
+    message: { role: "user" as const, content },
+    parent_tool_use_id: null,
+  };
 }
 
 function abortControllerFromSignal(signal: AbortSignal): AbortController {

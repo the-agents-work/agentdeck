@@ -2,6 +2,15 @@ export const PROTOCOL_VERSION = 1;
 
 export type AgentName = "claude" | "codex";
 
+/** Inline image attachment carried with a user prompt. base64 is the raw
+ *  payload without the data:URL prefix; mime tells the adapter which media
+ *  type to declare to the model. Kept tiny — server caps total size before
+ *  forwarding to avoid pushing megabytes of clipboard PNG through the SDK. */
+export type PromptImage = {
+  mime: "image/png" | "image/jpeg" | "image/gif" | "image/webp";
+  data_base64: string;
+};
+
 export type SessionStatus = "idle" | "running" | "error" | "done";
 
 export type SessionSummary = {
@@ -56,6 +65,9 @@ export type AgentMessage = {
   tool?: { name: string; input?: unknown };
   // Only set when type === "tool_result".
   toolResult?: { output?: unknown; isError?: boolean };
+  /** Images attached to a `user` message. Persisted so reloads / other
+   *  devices see the same attachments the prompt was sent with. */
+  images?: PromptImage[];
 };
 
 // ----- Client → Server commands -----
@@ -74,7 +86,14 @@ export type PocketAgentsCommand =
   | { type: "session.stop"; sessionId: string }
   | { type: "session.delete"; sessionId: string }
   | { type: "session.rename"; sessionId: string; title: string }
-  | { type: "prompt"; sessionId: string; text: string }
+  | {
+      type: "prompt";
+      sessionId: string;
+      text: string;
+      /** Optional inline images pasted/attached by the user. Server forwards
+       *  to the adapter as multimodal content. Claude only — Codex ignores. */
+      images?: PromptImage[];
+    }
   | { type: "projects.list" }
   | { type: "projects.add"; path: string; name?: string; pinned?: boolean }
   | { type: "projects.remove"; path: string }

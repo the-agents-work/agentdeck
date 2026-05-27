@@ -1,7 +1,11 @@
-import type { AgentMessage, AgentName } from "@pocket-agents/protocol";
+import type { AgentMessage, AgentName, PromptImage } from "@pocket-agents/protocol";
 
 export type AdapterRunOptions = {
   prompt: string;
+  /** Optional images attached to this turn. Adapters that support multimodal
+   *  input (Claude) should forward as SDK content blocks; ones that don't
+   *  (Codex CLI today) should ignore them, leaving the prompt text intact. */
+  images?: PromptImage[];
   // Adapter-native session id to resume from (e.g. Claude session_id or Codex thread id).
   // null = start a fresh session.
   resumeFromNativeId?: string | null;

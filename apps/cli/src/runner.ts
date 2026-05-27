@@ -1,4 +1,9 @@
-import type { AgentMessage, SessionStatus, SessionSummary } from "@pocket-agents/protocol";
+import type {
+  AgentMessage,
+  PromptImage,
+  SessionStatus,
+  SessionSummary,
+} from "@pocket-agents/protocol";
 import { adapters } from "@pocket-agents/adapters";
 import { SessionStore } from "./store.ts";
 
@@ -48,7 +53,11 @@ export class Runner {
   }
 
   /** Fire-and-forget. Use subscribe() to receive streamed events. */
-  async run(sessionId: string, prompt: string): Promise<void> {
+  async run(
+    sessionId: string,
+    prompt: string,
+    images?: PromptImage[],
+  ): Promise<void> {
     const session = this.store.getSession(sessionId);
     if (!session) {
       this.emit({ type: "error", sessionId, error: `Unknown session ${sessionId}` });
@@ -65,11 +74,18 @@ export class Runner {
       return;
     }
 
+    // Adapters that don't yet understand images: ignore the attachments and
+    // keep the text prompt. The dashboard already guards Codex with a toast,
+    // so this is a belt-and-suspenders fallback for future adapters.
+    const supportsImages = session.agent === "claude";
+    const forwardImages = supportsImages ? images : undefined;
+
     // Persist + emit the user's own prompt so all clients see it
     const userMsg: AgentMessage = {
       type: "user",
       raw: { role: "user", content: prompt },
       text: prompt,
+      ...(forwardImages && forwardImages.length > 0 ? { images: forwardImages } : {}),
     };
     this.store.appendMessage(sessionId, userMsg);
     this.emit({ type: "message", sessionId, message: userMsg });
@@ -93,6 +109,7 @@ export class Runner {
 
     const gen = adapter.run({
       prompt,
+      images: forwardImages,
       resumeFromNativeId: session.nativeSessionId,
       cwd: session.cwd ?? undefined,
       signal: ctrl.signal,

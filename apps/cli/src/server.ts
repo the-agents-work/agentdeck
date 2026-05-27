@@ -347,9 +347,20 @@ export function startServer(opts: {
             return;
           }
 
-          case "prompt":
+          case "prompt": {
+            // Defensive caps so a misbehaving / malicious client can't push
+            // megabytes of base64 PNG through the WS and OOM the laptop.
+            // 5 images per turn, 5MB each — generous for screenshots,
+            // tight enough to flag accidental whole-screen paste.
+            const MAX_IMAGES = 5;
+            const MAX_BYTES_PER_IMAGE = 5 * 1024 * 1024;
+            const images = (cmd.images ?? []).slice(0, MAX_IMAGES).filter((im) => {
+              // base64 is 4/3 the byte size — approx is fine here.
+              const approxBytes = (im.data_base64?.length ?? 0) * 0.75;
+              return im.data_base64 && approxBytes <= MAX_BYTES_PER_IMAGE;
+            });
             // Fire-and-forget. Results stream via runner.subscribe() fanout above.
-            runner.run(cmd.sessionId, cmd.text).catch((err) => {
+            runner.run(cmd.sessionId, cmd.text, images).catch((err) => {
               const error = err instanceof Error ? err.message : String(err);
               send(ws, {
                 type: "agent.error",
@@ -358,6 +369,7 @@ export function startServer(opts: {
               });
             });
             return;
+          }
 
           case "auth":
             // Already authed — ignore re-auth
