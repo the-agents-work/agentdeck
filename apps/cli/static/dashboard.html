@@ -2851,7 +2851,7 @@
 
         return html`
           <div class="empty-hero">
-            <h1>What can I help you with?</h1>
+            <h1>What can I help you build?</h1>
             <p class="hero-sub">${subtitle}</p>
 
             ${connected
@@ -2922,28 +2922,60 @@
 
             ${connected &&
             html`<div class="suggestions">
-              ${availableAgents.map(
-                (a) => html`
-                  <button
-                    key=${a}
-                    class="pill"
-                    data-agent=${a}
-                    onClick=${() => onSelectAgent(a)}
-                  >
-                    Switch to ${agentLabel(a)}
-                  </button>
-                `,
-              )}
               <button
                 class="pill"
                 onClick=${() =>
                   onStart(
                     selectedAgent,
-                    `What is this project about? Look at the README and top-level files in ${activeWorkspace.name} and summarize in 5 bullets.`,
+                    `Give me a 5-bullet tour of ${activeWorkspace.name}: what it is, main files, tech stack, current state, and what would be a good first task.`,
                   )}
               >
-                Summarize this project
+                Explain this repo
               </button>
+              <button
+                class="pill"
+                onClick=${() =>
+                  onStart(
+                    selectedAgent,
+                    `Do a quick code review on the most recently changed files in ${activeWorkspace.name}. Focus on bugs, security issues, and code smells. Be concise.`,
+                  )}
+              >
+                Code review
+              </button>
+              <button
+                class="pill"
+                onClick=${() =>
+                  onStart(
+                    selectedAgent,
+                    `Look at the latest git diff in ${activeWorkspace.name} and tell me what changed, what the intent likely was, and any issues.`,
+                  )}
+              >
+                Explain latest diff
+              </button>
+              <button
+                class="pill"
+                onClick=${() =>
+                  onStart(
+                    selectedAgent,
+                    `Run the project's test suite in ${activeWorkspace.name} and summarize the results. If there's no test script, suggest a minimal one.`,
+                  )}
+              >
+                Run tests
+              </button>
+              ${availableAgents.map(
+                (a) =>
+                  a !== selectedAgent &&
+                  html`
+                    <button
+                      key=${a}
+                      class="pill"
+                      data-agent=${a}
+                      onClick=${() => onSelectAgent(a)}
+                    >
+                      Switch to ${agentLabel(a)}
+                    </button>
+                  `,
+              )}
             </div>`}
           </div>
         `;
