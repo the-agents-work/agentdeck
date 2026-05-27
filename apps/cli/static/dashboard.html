@@ -1050,6 +1050,7 @@
       .tool-body {
         font-family: ui-monospace, "SF Mono", Menlo, monospace;
         font-size: 12px;
+        line-height: 1.55;
         max-height: 260px;
         overflow-y: auto;
         color: var(--text-main);
@@ -1086,7 +1087,17 @@
       .input-bar {
         padding: 12px 14px;
         padding-bottom: max(14px, env(safe-area-inset-bottom));
-        background: var(--bg-panel);
+        /* Gradient + blur so the composer feels like it's floating over the
+           chat thread instead of welded to a hard edge. The fallback solid
+           color is for Firefox/older Safari where backdrop-filter is off. */
+        background: linear-gradient(
+          to top,
+          color-mix(in srgb, var(--bg-panel) 96%, transparent),
+          color-mix(in srgb, var(--bg-panel) 72%, transparent)
+        );
+        background-color: var(--bg-panel);
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
         border-top: 1px solid var(--border-soft);
       }
       .input-shell {
@@ -1171,11 +1182,28 @@
         padding: 8px 16px;
         font-size: 12px;
         color: var(--accent);
-        background: var(--bg-panel);
+        background: var(--accent-soft);
         border-top: 1px solid var(--border-soft);
         display: flex;
         align-items: center;
         justify-content: space-between;
+        gap: 12px;
+      }
+      .status-bar-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+      }
+      /* Monospaced elapsed-time chip — fixed-width digits stop the row
+         jittering as seconds roll over (1s → 12s → 1m 04s). */
+      .status-bar-time {
+        font-variant-numeric: tabular-nums;
+        font-family: ui-monospace, "SF Mono", Menlo, monospace;
+        font-size: 11.5px;
+        padding: 1px 7px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.06);
+        color: var(--accent);
       }
 
       /* ============================================================
@@ -1490,6 +1518,17 @@
         .context-pill-row {
           max-width: 880px;
           margin: 0 auto;
+        }
+        /* Status bar (Claude is working… + elapsed) — keep it on the same
+           880px axis as messages/composer so the "Stop" affordance sits
+           exactly above the send button. */
+        .status-bar {
+          max-width: 880px;
+          margin: 0 auto;
+          width: 100%;
+          padding: 10px 32px;
+          font-size: 12.5px;
+          border-radius: 12px 12px 0 0;
         }
         /* Workspace chip in header — slightly bigger, easier click target. */
         .ws-chip {
@@ -1831,6 +1870,33 @@
           : "Claude Code — Anthropic's code agent.";
       }
 
+      /** Compact elapsed-time formatter: 7s · 1m 12s · 5m 8s · 1h 04m 30s. */
+      function formatDuration(ms) {
+        if (!ms || ms < 0) return "0s";
+        const s = Math.floor(ms / 1000);
+        if (s < 60) return `${s}s`;
+        const m = Math.floor(s / 60);
+        const rs = s % 60;
+        if (m < 60) return `${m}m ${String(rs).padStart(2, "0")}s`;
+        const h = Math.floor(m / 60);
+        const rm = m % 60;
+        return `${h}h ${String(rm).padStart(2, "0")}m ${String(rs).padStart(2, "0")}s`;
+      }
+
+      /** Returns Date.now(), re-rendering every `intervalMs` while active.
+       *  Used by the status bar to drive the elapsed-time counter without
+       *  pulling in a global setInterval that ticks even when no run exists. */
+      function useNow(active, intervalMs = 1000) {
+        const [now, setNow] = useState(() => Date.now());
+        useEffect(() => {
+          if (!active) return;
+          setNow(Date.now());
+          const id = setInterval(() => setNow(Date.now()), intervalMs);
+          return () => clearInterval(id);
+        }, [active, intervalMs]);
+        return now;
+      }
+
       /* Apply the agent's accent color to <body> so all `var(--accent)` rules
          re-theme without touching individual components. */
       function applyAgentTheme(agent) {
@@ -1995,6 +2061,8 @@
                   sessionId: evt.session.id,
                   messages: [],
                   status: "idle",
+                  runStartedAt: null,
+                  lastDurationMs: null,
                 });
                 setSidebarOpen(false);
                 // Auto-fire a pending prompt queued by the hero composer.
@@ -2013,6 +2081,13 @@
                   sessionId: evt.sessionId,
                   messages: evt.messages,
                   status: evt.status,
+                  // We don't have the original startedAt over the wire (the
+                  // server only emits durationMs at completion), so the timer
+                  // starts ticking from "now" when we land on an already-
+                  // running session. Good enough — it just shows "since you
+                  // opened this tab" rather than absolute run time.
+                  runStartedAt: evt.status === "running" ? Date.now() : null,
+                  lastDurationMs: null,
                 });
                 break;
               case "session.deleted":
@@ -2044,11 +2119,23 @@
                 });
                 break;
               case "agent.status":
-                setChat((prev) =>
-                  prev && prev.sessionId === evt.sessionId
-                    ? { ...prev, status: evt.status }
-                    : prev,
-                );
+                setChat((prev) => {
+                  if (!prev || prev.sessionId !== evt.sessionId) return prev;
+                  // Track when this run started so we can render an
+                  // elapsed-time counter, and remember the final durationMs
+                  // emitted by the server so the chip survives reloads.
+                  const runStartedAt =
+                    evt.status === "running" && prev.status !== "running"
+                      ? Date.now()
+                      : evt.status === "running"
+                        ? (prev.runStartedAt ?? Date.now())
+                        : null;
+                  const lastDurationMs =
+                    typeof evt.durationMs === "number"
+                      ? evt.durationMs
+                      : prev.lastDurationMs ?? null;
+                  return { ...prev, status: evt.status, runStartedAt, lastDurationMs };
+                });
                 setSessions((prev) =>
                   prev.map((s) =>
                     s.id === evt.sessionId ? { ...s, status: evt.status } : s,
@@ -2811,6 +2898,18 @@
 
         const currentAgent = session?.agent ?? "claude";
 
+        // Live ticker only ticks while a run is in flight; ditching the
+        // interval the moment the run finishes keeps idle tabs silent.
+        const running = chat.status === "running";
+        const now = useNow(running);
+        const elapsedMs =
+          running && chat.runStartedAt ? now - chat.runStartedAt : 0;
+        const elapsedLabel = running ? formatDuration(elapsedMs) : null;
+        const lastDurationLabel =
+          !running && chat.lastDurationMs
+            ? formatDuration(chat.lastDurationMs)
+            : null;
+
         return html`
           <header class="main-header">
             <button
@@ -2830,19 +2929,28 @@
                 ${(() => {
                   const proj = projectLabelFor(session, projects);
                   const time = friendlyTime(session.createdAt);
-                  return proj ? `${proj} · ${time}` : time;
+                  const base = proj ? `${proj} · ${time}` : time;
+                  return lastDurationLabel
+                    ? `${base} · last run ${lastDurationLabel}`
+                    : base;
                 })()}
               </span>`}
             </div>
-            ${chat.status === "running" &&
-            html`<span class="badge running">working</span>`}
+            ${running &&
+            html`<span class="badge running"
+              >working${elapsedLabel ? ` · ${elapsedLabel}` : ""}</span
+            >`}
             ${chat.status === "error" &&
             html`<span class="badge" style="color: var(--error);">error</span>`}
           </header>
           <${MessageList} messages=${chat.messages} status=${chat.status} />
-          ${chat.status === "running" &&
+          ${running &&
           html` <div class="status-bar">
-            <span>${agentLabel(currentAgent)} is working...</span>
+            <span class="status-bar-label"
+              >${agentLabel(currentAgent)} is working…${elapsedLabel
+                ? html` <span class="status-bar-time">${elapsedLabel}</span>`
+                : ""}</span
+            >
             <button class="stop-btn" onClick=${onStop}>Stop</button>
           </div>`}
           ${session?.cwd &&
