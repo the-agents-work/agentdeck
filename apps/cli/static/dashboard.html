@@ -2272,7 +2272,13 @@
         }
         function openSession(id) {
           setActiveId(id);
-          setChat({ sessionId: id, messages: [], status: "idle" });
+          setChat({
+            sessionId: id,
+            messages: [],
+            status: "idle",
+            runStartedAt: null,
+            lastDurationMs: null,
+          });
           send({ type: "session.resume", sessionId: id });
           setSidebarOpen(false);
           // Switching to a chat ALSO updates the active workspace so that
