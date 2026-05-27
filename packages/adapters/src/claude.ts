@@ -187,24 +187,27 @@ function normalize(sdkMsg: unknown): AgentMessage[] {
 
   if (m.type === "system") {
     // System events the dashboard CAN surface as small inline notices:
-    //   - hook_started   (a configured hook is about to run)
     //   - hook_response  (the hook finished)
-    // Everything else (init, model metadata, MCP readiness, …) is noise.
+    // Drop `hook_started` — it just duplicates `hook_response` one beat
+    // later and doubled the timeline density to no benefit (combo A).
+    // Drop the SessionStart lifecycle family entirely — it fires on every
+    // turn (startup / resume / clear / compact), is unrelated to anything
+    // the user asked for, and was the main source of "wall of hook chips"
+    // noise on every reply (combo C).
     const subtype = m.subtype ?? "";
-    if (subtype === "hook_started" || subtype === "hook_response") {
-      const hookName =
-        (m as { hook_name?: string }).hook_name ??
-        (m as { name?: string }).name ??
-        "hook";
-      return [
-        {
-          type: "hook",
-          raw: sdkMsg,
-          text: `${hookName} · ${subtype === "hook_started" ? "started" : "done"}`,
-        },
-      ];
-    }
-    return [];
+    if (subtype !== "hook_response") return [];
+    const hookName =
+      (m as { hook_name?: string }).hook_name ??
+      (m as { name?: string }).name ??
+      "hook";
+    if (/^SessionStart(?::|$)/i.test(hookName)) return [];
+    return [
+      {
+        type: "hook",
+        raw: sdkMsg,
+        text: `${hookName} · done`,
+      },
+    ];
   }
 
   if (m.type === "assistant" || m.type === "user") {
